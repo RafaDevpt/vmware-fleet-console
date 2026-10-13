@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "pyvmomi>=8.0.2,<9.0",
-    "textual>=0.79,<2.0",
+    "textual>=0.79,<9.0",
 ]
 
 [project.optional-dependencies]
