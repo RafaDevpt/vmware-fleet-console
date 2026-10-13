@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/VMware-Fleet-Console/Linux"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/VMware-Fleet-Console/Windows"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/VMware-Fleet-Console/macOS"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

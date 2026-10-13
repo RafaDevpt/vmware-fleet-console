@@ -10,11 +10,11 @@
 **The whole VMware estate on one terminal screen — and the maintenance that follows**
 
 ![Status](https://img.shields.io/badge/status-active-2EA043?style=for-the-badge)
-![Version](https://img.shields.io/badge/version-1.0.0-1F6FEB?style=for-the-badge)
+[![Release](https://img.shields.io/github/v/release/RafaDevpt/vmware-fleet-console?style=for-the-badge&color=1F6FEB)](https://github.com/RafaDevpt/vmware-fleet-console/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/RafaDevpt/vmware-fleet-console/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/RafaDevpt/vmware-fleet-console/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Tests](https://img.shields.io/badge/691_tests-2EA043?style=for-the-badge)
 
-<a href="../../tree/main"><img src="https://img.shields.io/badge/←_back_to_index-30363D?style=flat-square" /></a>
+<a href="https://github.com/RafaDevpt/Personal-AI-Projects"><img src="https://img.shields.io/badge/←_back_to_index-30363D?style=flat-square" /></a>
 
 </div>
 
