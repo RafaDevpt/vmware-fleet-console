@@ -40,9 +40,9 @@ name: CI
 
 on:
   push:
-    branches: [VMware-Fleet-Console]
+    branches: [main]
   pull_request:
-    branches: [VMware-Fleet-Console]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
