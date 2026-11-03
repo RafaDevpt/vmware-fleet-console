@@ -73,6 +73,9 @@ antes, com **857 testes** a passar (276 + 294 + 287).
 - **O diálogo do certificado mostrava o sujeito, o emissor e a validade em
   branco**, porque o `getpeercert()` só os dá para certificados validados. Agora
   lêem-se do próprio DER.
+- **O `EXECUTAR.bat` recusava arrancar com o Python do python.org instalado**
+  sempre que o atalho da Microsoft Store também estivesse no PATH. Agora escolhe
+  o Python que corre de facto — primeiro o lançador `py`, depois o `python`.
 - A tabela de privilégios do README dizia `GuestControl` para encerrar e
   reiniciar pelo convidado; o vSphere pede `PowerOff` e `Reset`.
 

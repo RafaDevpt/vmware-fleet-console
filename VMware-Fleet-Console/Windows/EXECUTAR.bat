@@ -33,55 +33,61 @@ echo  --------------------
 echo.
 
 REM --- PT-PT: Python / EN-UK: Python ----------------------------------------
-where python >nul 2>&1
-if errorlevel 1 (
-    echo  [ERRO] O Python nao foi encontrado.
-    echo         Instale de https://www.python.org/downloads/
-    echo         IMPORTANTE: marque "Add Python to PATH" durante a instalacao.
-    echo.
-    pause
-    exit /b 1
-)
-
-REM --- PT-PT: O atalho da Microsoft Store.
 REM
-REM     Uma instalacao limpa do Windows traz um python.exe no PATH que abre a
-REM     loja em vez de correr Python. Sem esta verificacao, o que acontece a
-REM     seguir e a Store abrir-se sozinha e ninguem perceber porque.
+REM PT-PT: Decide-se pelo que CORRE, nao pelo que existe no PATH.
 REM
-REM EN-UK: The Microsoft Store shim. Without this check, what happens next is
-REM     the Store opening on its own and nobody understanding why.
+REM        Uma instalacao limpa do Windows traz um python.exe em
+REM        ...\Microsoft\WindowsApps que nao e o Python: e um atalho que abre a
+REM        loja. Na 1.0 bastava esse atalho aparecer no PATH para o arranque
+REM        parar - mesmo com o Python do python.org instalado e a funcionar a
+REM        frente dele. Agora experimenta-se primeiro o lancador "py" (que vem
+REM        com o python.org), depois o "python"; o primeiro que correr de facto
+REM        um Python 3.10 ou superior e o escolhido.
+REM
+REM EN-UK: Decided by what RUNS, not by what is on the PATH. The Store shim on
+REM        the PATH used to stop startup even with a working python.org Python
+REM        ahead of it. Now the "py" launcher is tried first, then "python"; the
+REM        first that actually runs Python 3.10+ wins.
 REM --------------------------------------------------------------------------
-for /f "delims=" %%P in ('where python 2^>nul') do (
-    echo %%P | find /i "\Microsoft\WindowsApps\" >nul
-    if not errorlevel 1 (
-        echo  [ERRO] O python.exe encontrado e o atalho da Microsoft Store.
-        echo         Nao e o Python: abre a loja.
-        echo.
-        echo         Instale de https://www.python.org/downloads/ e depois va a
-        echo         Definicoes ^> Aplicacoes ^> Aliases de execucao de aplicacoes
-        echo         e desligue os do python.exe.
-        echo.
-        pause
-        exit /b 1
-    )
+set "PY="
+py -3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+if not errorlevel 1 set "PY=py -3"
+if not defined PY (
+    python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+    if not errorlevel 1 set "PY=python"
 )
 
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
-if errorlevel 1 (
-    echo  [ERRO] O Python encontrado e demasiado antigo. E preciso 3.10 ou superior.
-    python --version
+if not defined PY (
+    python -c "import sys" >nul 2>&1
+    if errorlevel 1 (
+        echo  [ERRO] Nao ha nenhum Python instalado que funcione.
+        echo         O python.exe que o Windows traz de origem e so um atalho para
+        echo         a Microsoft Store - nao e o Python.
+        echo.
+        echo         1. Instale de https://www.python.org/downloads/
+        echo            e marque "Add python.exe to PATH" e "tcl/tk and IDLE".
+        echo         2. Em Definicoes ^> Aplicacoes ^> Definicoes avancadas de
+        echo            aplicacoes ^> Aliases de execucao de aplicacoes,
+        echo            desligue os dois do python.exe e do python3.exe.
+        echo         3. Feche esta janela e volte a abrir o EXECUTAR.bat.
+    ) else (
+        echo  [ERRO] O Python encontrado e demasiado antigo. E preciso 3.10 ou superior.
+        python --version
+        echo         Instale um mais recente de https://www.python.org/downloads/
+    )
     echo.
     pause
     exit /b 1
 )
+echo  A usar: %PY%
+echo.
 
 REM --- PT-PT: Ambiente virtual / EN-UK: Virtual environment -----------------
 if not exist ".venv\Scripts\python.exe" (
     echo  Primeira execucao: a preparar o ambiente.
     echo  First run: preparing the environment.
     echo.
-    python -m venv .venv
+    %PY% -m venv .venv
     if errorlevel 1 (
         echo  [ERRO] Falha ao criar o ambiente virtual.
         echo.

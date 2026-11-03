@@ -70,9 +70,12 @@ Uma instalação limpa do Windows traz um `python.exe` no PATH que **não é o
 Python**: é um atalho que abre a loja. Quem o corre vê a Microsoft Store
 abrir-se sozinha e conclui que o programa está avariado.
 
-O `EXECUTAR.bat` detecta-o antes de tentar seja o que for e diz o que fazer:
-instalar de [python.org](https://www.python.org/downloads/) e desligar os aliases
-em **Definições → Aplicações → Aliases de execução de aplicações**.
+O `EXECUTAR.bat` decide pelo Python que **corre**, não pelo que aparece no PATH:
+experimenta primeiro o lançador `py` (que vem com o python.org) e depois o
+`python`. Se nenhum correr, diz o que fazer: instalar de
+[python.org](https://www.python.org/downloads/) — com *Add python.exe to PATH* e
+*tcl/tk and IDLE* marcados — e desligar os aliases em **Definições → Aplicações →
+Definições avançadas de aplicações → Aliases de execução de aplicações**.
 
 ### A página de código
 
