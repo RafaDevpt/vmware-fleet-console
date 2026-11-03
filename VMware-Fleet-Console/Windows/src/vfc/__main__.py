@@ -2,12 +2,12 @@
 """
 PT-PT: O arranque.
 
-       Decide entre a interface e o modo de texto, e essa decisão tem uma regra
-       que vale a pena dizer: **se a interface não puder desenhar, cai-se no
-       modo de texto em vez de rebentar.** Um terminal sem cor, uma janela
-       estreita, o Textual não instalado — em qualquer desses casos há uma
-       resposta útil a dar, e recusar dá-la seria escolher a pureza em vez do
-       trabalho.
+       A primeira coisa que acontece é a verificação da assinatura
+       (`branding.verify`). Depois decide-se entre a interface gráfica e o modo
+       de texto, com uma regra que vale a pena dizer: **se a janela não puder
+       abrir, cai-se no modo de texto em vez de rebentar.** Um servidor sem
+       ambiente gráfico, uma sessão SSH, um Python sem Tkinter — em qualquer
+       desses casos há uma resposta útil a dar.
 
        O modo de texto pede a senha com `getpass`, que não a mostra e não a
        deixa no histórico da shell. **Não há opção `--senha`**, e a ausência é
@@ -16,19 +16,16 @@ PT-PT: O arranque.
        automação existe a variável `VFC_PASSWORD`, que também não é perfeita mas
        não fica na lista de processos — e a documentação diz o que ela é.
 
-EN-UK: The startup.
+EN-UK: The startup. The signature is verified first (`branding.verify`). Then
+       it chooses between the graphical interface and text mode, under one
+       rule: **if the window cannot open, it falls back to text rather than
+       failing** — a server with no desktop, an SSH session, a Python without
+       Tkinter all still get a useful answer.
 
-       It chooses between the interface and text mode, under one rule worth
-       stating: **if the interface cannot draw, it falls back to text rather
-       than failing.** A terminal with no colour, a narrow window, Textual not
-       installed — in each of those there is still a useful answer to give.
-
-       Text mode asks for the password with `getpass`, which neither echoes it
-       nor leaves it in the shell history. **There is no `--senha` option**, and
-       the absence is deliberate: a command-line argument is visible in `ps` to
-       every user on the machine and is written to `~/.bash_history`. For
-       automation there is `VFC_PASSWORD`, which is not perfect either but does
-       not sit in the process list — and the documentation says what it is.
+       Text mode asks for the password with `getpass`. **There is no `--senha`
+       option**, deliberately: a command-line argument is visible in `ps` and
+       lands in the shell history. For automation there is `VFC_PASSWORD`,
+       which is not perfect either but stays out of the process list.
 
 Created by Redfox using Claude
 """
@@ -40,7 +37,7 @@ import getpass
 import os
 import sys
 
-from . import __version__, cli, config, logging_setup, platform_support
+from . import __version__, branding, cli, config, logging_setup, platform_support
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,12 +45,13 @@ def build_parser() -> argparse.ArgumentParser:
     analisador = argparse.ArgumentParser(
         prog="vfc",
         description=(
-            "VMware Fleet Console — estado e manutenção de vCenter e ESXi a partir do terminal. "
-            "Sem argumentos, abre a interface."
+            "VMware Fleet Console — estado, manutenção e exportação de vCenter e ESXi. "
+            "Sem argumentos, abre a interface gráfica."
         ),
         epilog=(
             "Códigos de saída: 0 sem nada a apontar, 1 há avisos, 2 há problemas críticos, "
-            "3 não foi possível ligar."
+            "3 não foi possível ligar, 4 a assinatura da aplicação foi alterada. "
+            f"{branding.CREDIT}."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -66,7 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     analisador.add_argument(
         "--texto",
         action="store_true",
-        help="modo de texto, sem interface — para terminais simples e para automação",
+        help="modo de texto, sem janela — para sessões SSH, servidores sem ambiente gráfico e automação",
     )
     analisador.add_argument("--servidor", default="", help="endereço do vCenter ou do anfitrião ESXi")
     analisador.add_argument("--utilizador", default="", help="nome de utilizador")
@@ -84,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     """PT-PT: O ponto de entrada. / EN-UK: The entry point."""
+    try:
+        branding.verify()
+    except branding.BrandingTamperedError as erro:
+        _report_without_console(str(erro))
+        return cli.EXIT_TAMPERED
+
     argumentos = build_parser().parse_args(argv)
 
     ficheiro = logging_setup.setup(verbose=argumentos.detalhado)
@@ -106,26 +110,42 @@ def main(argv: list[str] | None = None) -> int:
     if argumentos.texto or argumentos.json or argumentos.servidor:
         return _modo_texto(argumentos, definicoes)
 
-    if not _interface_disponivel():
+    if not platform_support.gui_available():
         cli.write(
-            "A interface não está disponível neste terminal ou o Textual não está instalado.\n"
-            "A usar o modo de texto. Para o relatório de diagnóstico: python -m vfc --diagnostico\n",
+            "A interface gráfica não está disponível nesta máquina (sem Tkinter ou sem ambiente "
+            "gráfico).\nA usar o modo de texto. Para o relatório de diagnóstico: "
+            "python -m vfc --diagnostico\n",
             sys.stderr,
         )
         return _modo_texto(argumentos, definicoes)
 
-    from . import tui  # noqa: PLC0415
+    from . import gui  # noqa: PLC0415
 
-    return tui.run(definicoes)
+    return gui.run(definicoes)
 
 
-def _interface_disponivel() -> bool:
-    """PT-PT: Se dá para desenhar a interface. / EN-UK: Whether the interface can draw."""
+def _report_without_console(texto: str) -> None:
+    """
+    PT-PT: Escreve o erro na consola — ou, arrancado sem consola (`pythonw`,
+           que é como o lançador de Windows abre a janela), mostra-o numa caixa
+           de diálogo. Sem isto, a aplicação fechava-se sem dizer nada.
+    EN-UK: Writes the error to the console — or, started with no console
+           (`pythonw`, how the Windows launcher opens the window), shows it in a
+           dialog box. Without this the application would close silently.
+    """
+    if sys.stderr is not None:
+        cli.write(texto, sys.stderr)
+        return
     try:
-        import textual  # noqa: F401,PLC0415
-    except ImportError:
-        return False
-    return platform_support.terminal_is_capable()
+        import tkinter  # noqa: PLC0415
+        from tkinter import messagebox  # noqa: PLC0415
+
+        raiz = tkinter.Tk()
+        raiz.withdraw()
+        messagebox.showerror(branding.APP_NAME, texto, parent=raiz)
+        raiz.destroy()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _modo_texto(argumentos: argparse.Namespace, definicoes: config.Settings) -> int:
@@ -135,8 +155,9 @@ def _modo_texto(argumentos: argparse.Namespace, definicoes: config.Settings) -> 
            **O modo de texto não escreve nada no vSphere.** Não há aqui um
            `--desligar-maquina`, e não é esquecimento: uma operação destrutiva
            sem confirmação escrita fica a um `Ctrl-R` no histórico de distância
-           da próxima vez que alguém a repetir sem pensar. As operações vivem na
-           interface, onde há um sítio para confirmar.
+           da próxima vez que alguém a repetir sem pensar. As operações — e a
+           exportação, que pode encerrar máquinas — vivem na janela, onde há um
+           sítio para confirmar.
 
     EN-UK: Connects, reads, writes out. **Text mode writes nothing to vSphere.**
            There is no `--power-off-vm` here, and that is not an oversight: a
@@ -173,7 +194,7 @@ def _modo_texto(argumentos: argparse.Namespace, definicoes: config.Settings) -> 
     if confianca.needs_decision:
         # PT-PT: Em modo de texto não se aceita um certificado por omissão. Um
         #        script que corra sem ninguém a olhar não é sítio para decidir
-        #        em quem se confia — aceita-se uma vez na interface, e a partir
+        #        em quem se confia — aceita-se uma vez na janela, e a partir
         #        daí o script tem a impressão digital guardada e corre sozinho.
         # EN-UK: Text mode never accepts a certificate by default. A script
         #        running with nobody watching is no place to decide who to
@@ -181,7 +202,7 @@ def _modo_texto(argumentos: argparse.Namespace, definicoes: config.Settings) -> 
         #        script has the fingerprint stored and runs on its own.
         cli.write(confianca.message, sys.stderr)
         cli.write(
-            "\nO certificado deste servidor ainda não foi aceite. Abra a interface uma vez "
+            "\nO certificado deste servidor ainda não foi aceite. Abra a janela uma vez "
             "(python -m vfc), compare a impressão digital e aceite-a. A partir daí o modo de "
             "texto liga sozinho.",
             sys.stderr,

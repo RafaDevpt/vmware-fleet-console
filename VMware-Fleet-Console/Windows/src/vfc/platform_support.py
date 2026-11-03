@@ -16,14 +16,13 @@ PT-PT: Particularidades do Windows.
        pelo caminho (`WindowsApps`) e diz-se o que é, em vez de deixar alguém
        concluir que o programa está avariado.
 
-       **O terminal.** O `cmd.exe` clássico não desenha uma TUI decentemente —
-       tem 16 cores, não tem cor verdadeira, e a página de código por omissão
-       (850 em Portugal) transforma os caracteres de desenho em símbolos
-       aleatórios. O Windows Terminal e o PowerShell moderno tratam disto, e a
-       aplicação diz qual está a ser usado antes de tentar desenhar.
+       **A nitidez da janela.** Num portátil com a escala do ecrã a 125% ou
+       150%, o Windows estica as janelas das aplicações que não se declaram
+       preparadas para alta densidade, e o texto fica desfocado. A aplicação
+       declara-se, antes de abrir a primeira janela.
 
-       **A página de código.** É a causa número um de "sai tudo aos quadradinhos"
-       em Windows. A 65001 é a UTF-8, e é a única em que os caracteres de
+       **A página de código**, que só importa ao modo de texto. É a causa
+       número um de "sai tudo aos quadradinhos" em Windows. A 65001 é a UTF-8, e é a única em que os caracteres de
        desenho e os acentos saem certos.
 
 EN-UK: Windows specifics.
@@ -34,8 +33,9 @@ EN-UK: Windows specifics.
        Three things go wrong only on Windows. The Microsoft Store `python.exe` is
        a shim that opens the Store rather than running Python, and whoever runs
        it sees the Store open and does not understand why — it is detected by its
-       path and named. The classic `cmd.exe` does not draw a TUI decently. And
-       the code page is the number-one cause of "it all comes out as boxes":
+       path and named. Windows stretches — and blurs — the windows of
+       applications that do not declare high-DPI awareness; this one declares
+       it before its first window. And, for text mode, the code page is the number-one cause of "it all comes out as boxes":
        65001 is UTF-8, and the only one where the drawing characters and the
        accents come out right.
 
@@ -47,11 +47,9 @@ from __future__ import annotations
 import logging
 import os
 import platform
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
 _log = logging.getLogger(__name__)
@@ -87,65 +85,6 @@ class Requirement:
         if not self.present and self.command:
             linha += f"\n    {self.command}"
         return linha
-
-
-class Terminal(str, Enum):
-    """
-    PT-PT: Em que terminal isto está a correr.
-
-           Decide se a interface vale a pena. O `cmd.exe` clássico consegue
-           desenhá-la, mas com 16 cores e uma página de código que costuma estar
-           errada — funciona, e fica feio. O Windows Terminal não tem nenhum dos
-           dois problemas.
-
-    EN-UK: Which terminal this is running in. It decides whether the interface is
-           worth drawing. The classic `cmd.exe` can draw it, with sixteen colours
-           and a code page that is usually wrong — it works and it looks bad.
-    """
-
-    WINDOWS_TERMINAL = "Windows Terminal"
-    CONHOST = "Consola clássica (cmd.exe)"
-    VSCODE = "Terminal do VS Code"
-    UNKNOWN = "desconhecido"
-
-
-def detect_terminal(environment: dict[str, str] | None = None) -> Terminal:
-    """
-    PT-PT: Qual é o terminal.
-
-           O `WT_SESSION` é posto pelo Windows Terminal e é a forma documentada
-           de o reconhecer. O `TERM_PROGRAM` cobre o do VS Code, que é o segundo
-           sítio mais provável de alguém correr isto.
-
-    EN-UK: Which terminal this is. `WT_SESSION` is set by Windows Terminal and is
-           the documented way to recognise it. `TERM_PROGRAM` covers VS Code's,
-           the second most likely place somebody runs this.
-
-       Um ambiente vazio devolve `UNKNOWN` e nao `CONHOST`: em Windows a
-       `ComSpec` esta sempre definida, portanto a sua ausencia nao significa
-       "consola classica", significa que nao se esta a olhar para um ambiente
-       de Windows verdadeiro. Adivinhar a consola classica ai daria um
-       diagnostico com um aviso sobre um terminal que ninguem esta a usar.
-
-    EN-UK (cont.): An empty environment returns `UNKNOWN`, not `CONHOST`: on
-       Windows `ComSpec` is always set, so its absence does not mean "classic
-       console", it means this is not a real Windows environment. Guessing
-       CONHOST there would produce a diagnostic warning about a terminal nobody
-       is using.
-
-    >>> detect_terminal({"WT_SESSION": "abc"}) is Terminal.WINDOWS_TERMINAL
-    True
-    >>> detect_terminal({}) is Terminal.UNKNOWN
-    True
-    """
-    ambiente = os.environ if environment is None else environment
-    if ambiente.get("WT_SESSION"):
-        return Terminal.WINDOWS_TERMINAL
-    if ambiente.get("TERM_PROGRAM", "").lower() == "vscode":
-        return Terminal.VSCODE
-    if ambiente.get("SESSIONNAME") or ambiente.get("ComSpec"):
-        return Terminal.CONHOST
-    return Terminal.UNKNOWN
 
 
 def is_store_python(executable: str | None = None) -> bool:
@@ -213,34 +152,72 @@ def app_data_dir(app_name: str) -> Path:
     return raiz / app_name
 
 
-def terminal_is_capable() -> bool:
+# PT-PT: As letras da interface. A Segoe UI é a do próprio Windows desde o
+#        Vista; a Cascadia Mono vem com o Windows Terminal e a Consolas com
+#        qualquer Windows — o Tk escolhe a primeira que existir.
+# EN-UK: The interface fonts. Segoe UI is Windows' own since Vista; Cascadia
+#        Mono ships with Windows Terminal and Consolas with every Windows — Tk
+#        picks the first that exists.
+UI_FONT_FAMILIES = ("Segoe UI", "Tahoma")
+MONO_FONT_FAMILIES = ("Cascadia Mono", "Consolas", "Courier New")
+UI_FONT_SIZE = 10
+
+
+def tkinter_available() -> bool:
     """
-    PT-PT: Se este terminal aguenta a interface.
-
-           A saída tem de ser um terminal (e não um `> ficheiro.txt`) e tem de
-           haver largura. O `cmd.exe` clássico passa: fica feio, mas funciona, e
-           recusar desenhar seria pior do que desenhar mal.
-
-    EN-UK: Whether this terminal can carry the interface. Output has to be a
-           terminal and there has to be width. The classic `cmd.exe` passes: it
-           looks bad but works, and refusing to draw would be worse than drawing
-           badly.
-    """
-    if not sys.stdout.isatty():
-        return False
-    return terminal_size()[0] >= 60
-
-
-def terminal_size() -> tuple[int, int]:
-    """
-    PT-PT: Colunas e linhas, com omissões de 80x24.
-    EN-UK: Columns and rows, defaulting to 80x24.
+    PT-PT: Se o Tkinter está instalado. Vem com o instalador do python.org,
+           mas é uma opção ("tcl/tk and IDLE") que se pode desmarcar.
+    EN-UK: Whether Tkinter is installed. It ships with the python.org installer,
+           but as an option ("tcl/tk and IDLE") that can be unticked.
     """
     try:
-        tamanho = shutil.get_terminal_size(fallback=(80, 24))
-        return tamanho.columns, tamanho.lines
-    except OSError:
-        return 80, 24
+        import tkinter  # noqa: F401,PLC0415
+    except ImportError:
+        return False
+    return True
+
+
+def gui_available() -> bool:
+    """
+    PT-PT: Se dá para abrir a janela. Em Windows há sempre um ambiente gráfico;
+           a única coisa que pode faltar é o Tkinter.
+    EN-UK: Whether the window can open. Windows always has a desktop; the only
+           thing that can be missing is Tkinter.
+    """
+    return tkinter_available()
+
+
+def prepare_gui() -> None:
+    """
+    PT-PT: Avisa o Windows de que a aplicação sabe desenhar em ecrãs de alta
+           densidade.
+
+           Sem isto, num portátil com a escala a 125% ou 150% — que é quase
+           todos — o Windows desenha a janela em pequeno e estica-a, e o texto
+           fica desfocado. Tem de ser chamado antes de a primeira janela
+           existir. Numa versão do Windows sem a função, segue-se sem ela: a
+           janela fica desfocada, mas abre.
+
+    EN-UK: Tells Windows the application can draw on high-density screens.
+           Without it, on a laptop at 125% or 150% scaling — nearly all of them —
+           Windows draws the window small and stretches it, blurring the text.
+           Must be called before the first window exists. Without the function,
+           it carries on: blurry, but open.
+    """
+    try:
+        import ctypes  # noqa: PLC0415
+
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)  # type: ignore[attr-defined]
+    except (AttributeError, OSError) as erro:
+        _log.debug("Sem consciência de DPI: %s", erro)
+
+
+def open_path(path: Path) -> None:
+    """
+    PT-PT: Abre uma pasta ou um ficheiro no Explorador, como um duplo clique.
+    EN-UK: Opens a folder or file in Explorer, like a double click.
+    """
+    os.startfile(str(path))  # type: ignore[attr-defined]  # noqa: S606
 
 
 def unicode_is_safe() -> bool:
@@ -317,34 +294,15 @@ def check_requirements() -> list[Requirement]:
         )
     )
 
-    try:
-        import textual  # noqa: F401,PLC0415
-
-        tem_textual = True
-    except ImportError:
-        tem_textual = False
-
     requisitos.append(
         Requirement(
-            name="Textual",
-            present=tem_textual,
+            name="Tkinter",
+            present=tkinter_available(),
             essential=False,
-            detail="a interface de texto; sem ela resta o modo de linha de comandos",
-            command="pip install -r requirements.txt",
-        )
-    )
-
-    terminal = detect_terminal()
-    colunas, linhas = terminal_size()
-    requisitos.append(
-        Requirement(
-            name="Terminal",
-            present=terminal is not Terminal.CONHOST and terminal_is_capable(),
-            essential=False,
-            detail=f"{terminal.value}, {colunas}x{linhas}",
+            detail="a interface gráfica; sem ela resta o modo de texto (--texto)",
             command=(
-                "a consola clássica desenha a interface com 16 cores; "
-                "o Windows Terminal fica bastante melhor"
+                "volte a correr o instalador do python.org, escolha 'Modify' e marque "
+                "'tcl/tk and IDLE'"
             ),
         )
     )

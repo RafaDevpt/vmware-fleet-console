@@ -77,6 +77,11 @@ comando_para() {
         zypper:venv)      echo "ja vem com o python3" ;;
         apk:python3)      echo "sudo apk add python3" ;;
         apk:venv)         echo "ja vem com o python3" ;;
+        apt:tkinter)      echo "sudo apt install python3-tk" ;;
+        dnf:tkinter)      echo "sudo dnf install python3-tkinter" ;;
+        pacman:tkinter)   echo "sudo pacman -S tk" ;;
+        zypper:tkinter)   echo "sudo zypper install python3-tk" ;;
+        apk:tkinter)      echo "sudo apk add py3-tkinter" ;;
         *)                echo "instale o pacote '$componente' pelo gestor de pacotes do seu sistema" ;;
     esac
 }
@@ -97,27 +102,33 @@ if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)";
 fi
 
 # ---------------------------------------------------------------------------
-# PT-PT: O terminal.
+# PT-PT: A janela.
 #
-#        Uma TUI num TERM=dumb, ou com a saida a ser encaminhada para um
-#        ficheiro, nao desenha. A aplicacao cai no modo de texto sozinha, mas
-#        vale a pena dize-lo aqui em vez de deixar alguem concluir que nao
-#        funciona.
+#        A interface e grafica (Tkinter) e precisa de duas coisas que em Linux
+#        podem faltar: o pacote do Tkinter, que nas distribuicoes vem a parte do
+#        Python, e um ambiente grafico (DISPLAY ou WAYLAND_DISPLAY). Sem uma ou
+#        outra, a aplicacao abre em modo de texto sozinha — mas vale a pena
+#        dize-lo aqui, com o comando para resolver, em vez de deixar alguem
+#        concluir que nao funciona.
 #
-# EN-UK: The terminal. A TUI on TERM=dumb, or with output redirected to a file,
-#        does not draw. The application falls back to text mode on its own, but
-#        it is worth saying so here rather than letting somebody conclude it is
-#        broken.
+# EN-UK: The window. The interface is graphical (Tkinter) and needs two things
+#        Linux may lack: the Tkinter package, separate from Python on most
+#        distributions, and a desktop (DISPLAY or WAYLAND_DISPLAY). Without
+#        either, the application opens in text mode on its own — said here, with
+#        the command to fix it.
 # ---------------------------------------------------------------------------
-if [ ! -t 1 ]; then
-    aviso "A saida nao e um terminal: vai sair em modo de texto."
-elif [ "${TERM:-dumb}" = "dumb" ]; then
-    aviso "TERM=$TERM nao suporta a interface: vai sair em modo de texto."
+if [ $# -eq 0 ]; then
+    if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+        aviso "Sem ambiente grafico (DISPLAY e WAYLAND_DISPLAY vazios): vai abrir em modo de texto."
+    elif ! python3 -c "import tkinter" >/dev/null 2>&1; then
+        aviso "O Tkinter nao esta instalado: vai abrir em modo de texto."
+        passo "$(comando_para tkinter)"
+    fi
 fi
 
 case "${LANG:-}${LC_ALL:-}" in
     *UTF-8*|*utf8*|*UTF8*) ;;
-    *) aviso "A sessao nao esta em UTF-8: os caracteres de desenho podem sair trocados."
+    *) aviso "A sessao nao esta em UTF-8: os acentos do modo de texto podem sair trocados."
        passo "export LANG=pt_PT.UTF-8   (ou outra UTF-8)" ;;
 esac
 

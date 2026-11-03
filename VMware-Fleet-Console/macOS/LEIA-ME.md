@@ -21,11 +21,20 @@ e o duplo clique não faz nada:
 chmod +x executar.command cli.command
 ```
 
-Na primeira execução cria o ambiente virtual e instala as dependências.
+Na primeira execução cria o ambiente virtual e instala as dependências. Depois
+abre a janela, que pergunta primeiro **a que tipo de servidor se liga** — ESXi ou
+vCenter — e depois o servidor, o utilizador e a senha.
 
 **Não pede elevação e não precisa de Acesso Total ao Disco** — esta ferramenta
 não lê nada da máquina local. Fala com o vCenter pela rede, e as permissões que
 lhe interessam são as da conta do vSphere.
+
+## Exportar máquinas para OVF
+
+No separador **Máquinas**, escolha uma ou várias (Ctrl ou Shift) e carregue em
+**Exportar máquinas…**. O que acontece a cada máquina — pronta, vai ser
+encerrada, ou recusada e porquê — vê-se **antes** de confirmar. O detalhe está no
+[README do projecto](../README.md#exportação-para-ovf--ovf-export).
 
 ## Modo de texto
 
@@ -35,7 +44,8 @@ lhe interessam são as da conta do vSphere.
 ```
 
 Códigos de saída: **0** nada a apontar, **1** avisos, **2** críticos, **3** não
-foi possível ligar.
+foi possível ligar, **4** a assinatura da aplicação foi alterada. O modo de
+texto só lê: as operações e a exportação vivem na janela.
 
 ## O que este Mac precisa
 
@@ -47,13 +57,13 @@ foi possível ligar.
 | :--- | :--- | :--- |
 | Python 3.10+ | — | não arranca |
 | `pyvmomi` | a biblioteca da VMware | não há ligação nenhuma |
-| `textual` | a interface de texto | resta o modo de texto |
+| Tkinter | a janela; vem com o Python do python.org, no Homebrew é o `python-tk@3.x` | resta o modo de texto |
 | Homebrew | **não é preciso** | os conselhos de instalação ficam genéricos |
 
 ## O que é diferente nesta versão
 
 O `src/vfc/platform_support.py` é o único ficheiro que difere entre as três
-versões. Nesta, o que ele sabe e as outras não são duas coisas:
+versões. Nesta, o que ele sabe e as outras não são três coisas:
 
 ### O Python do sistema
 
@@ -70,6 +80,12 @@ ambiente virtual, o que resolve o problema de qualquer maneira.
 `/opt/homebrew` em **Apple Silicon**, `/usr/local` em **Intel**. É a razão de
 metade dos "funciona no meu Mac e não no teu": o mesmo comando, dois sítios,
 conforme o processador. O lançador e o diagnóstico escolhem o certo.
+
+### O Tkinter do Homebrew
+
+O Python do python.org traz o Tk. O do Homebrew não: precisa de
+`brew install python-tk@3.12` (ou a versão que tiver). O lançador e o
+diagnóstico dizem o comando com a versão certa.
 
 ### Onde ficam as definições
 

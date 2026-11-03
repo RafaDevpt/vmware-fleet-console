@@ -3,21 +3,22 @@ REM ===========================================================================
 REM PT-PT: Arranque da VMware Fleet Console em Windows.
 REM
 REM        Duplo clique. Na primeira execucao prepara o ambiente; nas seguintes
-REM        arranca directamente.
+REM        abre logo a janela, sem consola atras dela (pythonw).
 REM
 REM        Nao pede elevacao, e nao precisa: esta ferramenta nao le nada da
 REM        maquina local. Fala com o vCenter pela rede, e as permissoes que lhe
 REM        interessam sao as da conta do vSphere.
 REM
-REM        A pagina de codigo passa a 65001 (UTF-8) logo no inicio. Sem isso, os
-REM        caracteres de desenho e os acentos saem trocados numa consola
-REM        portuguesa — que fica com a pagina 850 por omissao.
+REM        A pagina de codigo passa a 65001 (UTF-8) logo no inicio, para as
+REM        mensagens desta consola e do modo de texto sairem com acentos.
 REM
-REM EN-UK: VMware Fleet Console launcher for Windows. Double-click. It asks for
-REM        no elevation and needs none: this tool reads nothing from the local
-REM        machine. The code page is switched to 65001 (UTF-8) at the start,
-REM        without which the drawing characters and accents come out wrong on a
-REM        Portuguese console, which defaults to 850.
+REM        Com argumentos (por exemplo --diagnostico), corre na consola como
+REM        antes, para se ver a resposta.
+REM
+REM EN-UK: VMware Fleet Console launcher for Windows. Double-click: first run
+REM        prepares the environment, later runs open the window straight away,
+REM        with no console behind it (pythonw). No elevation asked or needed.
+REM        With arguments (e.g. --diagnostico) it runs in the console as before.
 REM
 REM Created by Redfox using Claude
 REM ===========================================================================
@@ -103,6 +104,27 @@ if not exist ".venv\Scripts\python.exe" (
 REM --- PT-PT: Arrancar / EN-UK: Launch --------------------------------------
 set "PYTHONPATH=%~dp0src"
 set "PYTHONIOENCODING=utf-8"
+
+REM PT-PT: Sem argumentos, abre a janela. O Tkinter vem com o Python do
+REM        python.org, mas e uma opcao do instalador que se pode desmarcar:
+REM        confirma-se aqui, onde ainda ha consola para dizer o que falta.
+REM EN-UK: With no arguments, open the window. Tkinter is an installer option
+REM        that can be unticked: checked here, while there is still a console
+REM        to say what is missing.
+if "%~1"=="" (
+    .venv\Scripts\python.exe -c "import tkinter" >nul 2>&1
+    if errorlevel 1 (
+        echo  [ERRO] O Tkinter nao esta instalado neste Python.
+        echo         Volte a correr o instalador do python.org, escolha "Modify"
+        echo         e marque "tcl/tk and IDLE".
+        echo.
+        pause
+        exit /b 1
+    )
+    start "" "%~dp0.venv\Scripts\pythonw.exe" -m vfc
+    exit /b 0
+)
+
 .venv\Scripts\python.exe -m vfc %*
 set CODIGO=%errorlevel%
 

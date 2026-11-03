@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-PT-PT: VMware Fleet Console — manutenção de vCenter e ESXi a partir do terminal.
+PT-PT: VMware Fleet Console — estado, manutenção e exportação de vCenter e ESXi.
 
        Esta é a versão para Linux. As outras duas vivem nas pastas ao lado.
 
-EN-UK: VMware Fleet Console — vCenter and ESXi maintenance from the terminal.
+EN-UK: VMware Fleet Console — vCenter and ESXi state, maintenance and export.
 
        This is the Linux version. The other two live in the folders alongside.
 
@@ -13,5 +13,5 @@ Created by Redfox using Claude
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 __all__ = ["__version__"]

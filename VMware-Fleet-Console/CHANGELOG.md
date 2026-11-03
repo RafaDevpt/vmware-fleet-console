@@ -10,6 +10,79 @@ a numeração segue o [Versionamento Semântico](https://semver.org/lang/pt-BR/)
 
 ---
 
+## [2.0.0] — 2026-11-03
+
+Interface gráfica em vez da interface de texto, exportação de máquinas para OVF,
+e quatro correcções que a 1.0 escondia. Três aplicações independentes, como
+antes, com **857 testes** a passar (276 + 294 + 287).
+
+### Interface gráfica
+
+- **A TUI (Textual) foi substituída por uma janela (Tkinter).** O Tkinter vem
+  com o Python do python.org em Windows e macOS, e por isso a aplicação passou a
+  ter **uma única dependência do `pip`** (`pyvmomi`). Tema escuro e claro.
+- O ecrã de ligação pergunta primeiro **o tipo de servidor — ESXi ou vCenter** —
+  sugere o utilizador habitual e, depois de ligar, compara a escolha com o que o
+  servidor diz que é, perguntando antes de continuar se não coincidir.
+- O separador **Máquinas** abre filtrado nas **ligadas**, com procura e selecção
+  múltipla. As operações vivem num menu **Acções** por separador (o mesmo do botão
+  direito), com as recusadas pela guarda **desactivadas, não escondidas**.
+- As tabelas ordenam por qualquer coluna (números como números, IPs como IPs) e
+  **mantêm a selecção** quando o inventário se actualiza.
+- O certificado fixado aparece no cabeçalho do painel; a impressão digital no
+  diálogo de confiança vem em duas linhas, com botão para copiar.
+- Em Windows, o `EXECUTAR.bat` abre a janela **sem consola atrás**, e a janela
+  declara-se preparada para ecrãs de alta densidade.
+
+### Exportação para OVF
+
+- Novo separador **Exportação** e diálogo **Exportar máquinas…**: cada máquina
+  vai para uma pasta com o `.ovf`, os discos *stream-optimized*, um manifesto
+  **SHA-256** e um `LEIA-ME.txt`; na raiz do destino fica o relatório do lote em
+  texto e JSON.
+- **Sem `ovftool`**: `ExportVm` → `HttpNfcLease` → descarga → `CreateDescriptor`,
+  com a concessão mantida viva e o SHA-256 calculado durante a descarga.
+- Máquinas ligadas: **só com autorização explícita e ENCERRAR escrito**, são
+  encerradas pelo convidado, exportadas uma a uma e voltam a ser ligadas — ou
+  ficam desligadas, para a manutenção do anfitrião. **Nunca se desliga à força.**
+- Recusadas antes de confirmar, com a razão: sem Tools a correr, suspensas,
+  anfitrião sem resposta, e **o próprio vCenter da sessão**.
+- Uma exportação falhada ou cancelada **não deixa ficheiros a meio**, aborta a
+  concessão e volta a ligar a máquina que tinha sido encerrada.
+- A transferência dos discos vai directa ao anfitrião, **sem o proxy** da
+  máquina, e só envia o cookie da sessão a um certificado confirmado — o da
+  sessão, ou o que o vCenter anunciou na concessão.
+
+### A assinatura
+
+- O crédito e o autor vivem em `branding.py` e estão **selados**: alterá-los
+  impede o arranque (código de saída **4**), e a janela confirma que o rodapé o
+  mostra. Aparece no título, no rodapé, no *Sobre*, nos relatórios, no
+  `LEIA-ME.txt` de cada exportação e no registo.
+
+### Correcções
+
+- **ESXi geridos por vCenter não ligavam directamente.** O certificado deles é
+  emitido pela VMCA; fixado sem `VERIFY_X509_PARTIAL_CHAIN`, o aperto de mão
+  falhava sempre, mesmo depois de a impressão digital ser aceite.
+- **O separador dos anfitriões vinha vazio em servidores com sensores** (um HPE
+  com a imagem do fabricante, por exemplo): a leitura dos sensores percorria
+  `systemHealthInfo` como se fosse a lista, e a falha levava todos os anfitriões
+  com ela. Agora lê `numericSensorInfo`, compara a `key` do estado, e um objecto
+  ilegível já não esvazia a lista.
+- **O diálogo do certificado mostrava o sujeito, o emissor e a validade em
+  branco**, porque o `getpeercert()` só os dá para certificados validados. Agora
+  lêem-se do próprio DER.
+- A tabela de privilégios do README dizia `GuestControl` para encerrar e
+  reiniciar pelo convidado; o vSphere pede `PowerOff` e `Reset`.
+
+### Removido
+
+- A interface de texto (Textual) e as verificações de terminal que só ela usava.
+- A definição `confirm_destructive`, que nunca foi lida por nada.
+
+---
+
 ## [1.0.0] — 2026-09-08
 
 Primeira versão. Três aplicações independentes — `Windows/`, `Linux/` e

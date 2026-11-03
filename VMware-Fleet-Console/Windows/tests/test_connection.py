@@ -198,3 +198,27 @@ class TestEndpoint:
 
     def test_porta_por_omissao(self) -> None:
         assert connection.Endpoint(host="h", username="u").port == 443
+
+
+class TestDetalhesDoCertificado:
+    """
+    PT-PT: A correcção da 2.0: os detalhes lêem-se do próprio DER, porque o
+           `getpeercert()` só os dá para certificados validados — e o que se
+           mostra é precisamente o que não valida.
+    EN-UK: The 2.0 fix: details are read from the DER itself, since
+           `getpeercert()` only yields them for validated certificates.
+    """
+
+    def test_le_sujeito_emissor_e_validade(self) -> None:
+        import ssl
+        from pathlib import Path
+
+        pem = (Path(__file__).parent / "fixtures" / "servidor-teste.crt").read_text()
+        sujeito, emissor, validade = connection.describe_der(ssl.PEM_cert_to_DER_cert(pem))
+        assert sujeito == "CN=vfc-teste.invalid"
+        assert emissor == "CN=vfc-teste.invalid"
+        assert validade.endswith("UTC") and validade[:4].isdigit()
+
+    def test_lixo_nao_rebenta(self) -> None:
+        assert connection.describe_der(b"\x30\x82\xff\xff") == ("", "", "")
+        assert connection.describe_der(b"") == ("", "", "")

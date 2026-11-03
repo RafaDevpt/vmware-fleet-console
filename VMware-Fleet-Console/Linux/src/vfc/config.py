@@ -106,6 +106,11 @@ class Server:
     username: str = ""
     port: int = 443
     fingerprint: str = ""
+    # PT-PT: "esxi" ou "vcenter" — o que a pessoa escolheu da última vez. Só
+    #        serve para o ecrã de ligação abrir já com a escolha certa.
+    # EN-UK: "esxi" or "vcenter" — what was chosen last time, so the connect
+    #        screen opens with the right choice.
+    kind: str = ""
 
     @property
     def display(self) -> str:
@@ -133,8 +138,11 @@ class Settings:
     refresh_seconds: int = 60
     connect_timeout: int = 30
     theme: str = "escuro"
-    confirm_destructive: bool = True
     output_dir: str = ""
+
+    # -- PT-PT: Exportação. / EN-UK: Export. ---------------------------------
+    export_dir: str = ""
+    shutdown_timeout_minutes: int = 10
 
     # -- PT-PT: Limiares editáveis. / EN-UK: Editable thresholds. -----------
     datastore_free_warning_pct: float = 20.0
@@ -168,6 +176,7 @@ class Settings:
         existente.label = server.label or existente.label
         existente.username = server.username or existente.username
         existente.port = server.port or existente.port
+        existente.kind = server.kind or existente.kind
         if server.fingerprint:
             existente.fingerprint = server.fingerprint
 
@@ -244,6 +253,9 @@ def load_settings(path: Path | None = None) -> Settings:
                 username=str(bruto.get("username", "") or ""),
                 port=int(bruto.get("port", 443) or 443),
                 fingerprint=str(bruto.get("fingerprint", "") or "").upper(),
+                kind=str(bruto.get("kind", "") or "")
+                if bruto.get("kind") in ("esxi", "vcenter")
+                else "",
             )
         )
 
@@ -253,6 +265,7 @@ def load_settings(path: Path | None = None) -> Settings:
         "connect_timeout",
         "snapshot_age_warning_days",
         "snapshot_age_critical_days",
+        "shutdown_timeout_minutes",
     ):
         if campo in dados:
             try:
@@ -271,8 +284,8 @@ def load_settings(path: Path | None = None) -> Settings:
         definicoes.theme = dados["theme"]
     if isinstance(dados.get("output_dir"), str):
         definicoes.output_dir = dados["output_dir"]
-    if isinstance(dados.get("confirm_destructive"), bool):
-        definicoes.confirm_destructive = dados["confirm_destructive"]
+    if isinstance(dados.get("export_dir"), str):
+        definicoes.export_dir = dados["export_dir"]
 
     return definicoes
 

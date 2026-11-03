@@ -7,7 +7,7 @@
 
 # 🖥️ VMware Fleet Console
 
-**The whole VMware estate on one terminal screen — and the maintenance that follows**
+**The whole VMware estate in one window — the maintenance that follows, and whole-machine OVF copies before you touch the storage**
 
 ![Status](https://img.shields.io/badge/status-active-2EA043?style=for-the-badge)
 [![Release](https://img.shields.io/github/v/release/RafaDevpt/vmware-fleet-console?style=for-the-badge&color=1F6FEB)](https://github.com/RafaDevpt/vmware-fleet-console/releases)
@@ -24,11 +24,11 @@
 
 At eleven at night something is wrong with a virtual machine and the answer is behind a browser, a certificate warning, a login, and four clicks through a web client that was not built for someone in a hurry.
 
-VMware Fleet Console answers it from a terminal. It connects to a **vCenter** or straight to an **ESXi host**, reads the whole inventory in one pass, and puts on one screen the question that brought you there:
+VMware Fleet Console answers it from one desktop window. It first asks **which kind of server — ESXi or vCenter** — then connects to a **vCenter** or straight to an **ESXi host**, reads the whole inventory in one pass, and puts on one screen the question that brought you there:
 
 > **Is everything all right? And if not — what, where, and what do I do about it?**
 
-Then it handles what comes next: power operations, snapshots, maintenance mode. No browser, and no re-authenticating every time.
+Then it handles what comes next: power operations, snapshots, maintenance mode — and **exporting whole machines to OVF**, the copy you want in hand before rebuilding a host's RAID. No browser, no `ovftool`, and no re-authenticating every time.
 
 ---
 
@@ -52,18 +52,13 @@ And **a changed fingerprint stops the connection**, showing the old and new side
 
 The refuse button holds focus, so somebody hitting Enter by reflex does not accept a certificate they did not read.
 
+**Fixed in 2.0:** a vCenter-managed ESXi carries a certificate issued by the VMCA, which is not its own root — pinning one in 1.0 still failed the handshake. The accepted certificate now suffices on its own (`VERIFY_X509_PARTIAL_CHAIN`), which is what pinning means.
+
 ---
 
 ## Shutting down is not powering off
 
-`ShutdownGuest` asks the guest to shut itself down. `PowerOff` is the wall socket. Both options always appear together with what each one does written beside them — and when VMware Tools are not running, the clean option appears **as a refusal with the reason**, rather than silently disappearing:
-
-```
-  > Encerrar pelo sistema convidado — limpo, pede às Tools
-    Desligar à força — equivale a cortar a corrente
-    Reiniciar pelo sistema convidado
-    Suspender — guarda a memória em disco
-```
+`ShutdownGuest` asks the guest to shut itself down. `PowerOff` is the wall socket. Both always sit in the same **Actions** menu — the same one the right mouse button opens — and when VMware Tools are not running, the clean option is there **disabled, not hidden**, so it is visible that it exists and cannot be done now.
 
 ### Confirmation is typed, not clicked
 
@@ -72,6 +67,21 @@ Destructive operations have no Yes and No. They have a box where the **object's 
 A dialog with a confirm button teaches people to press confirm. A box that needs `SRV-DC01` typed into it forces you to read that the machine about to be stopped is called SRV-DC01. It is the only real defence against the list having sorted differently from how you thought.
 
 Snapshot confirmations ask for the **machine's** name, not the snapshot's — every snapshot is called "before the upgrade", and typing that separates nothing.
+
+---
+
+## Exporting machines to OVF
+
+An agent backup inside Windows protects the data and the OS, but recovering the machine is a bare-metal restore: the `.vmx`, the virtual hardware, the NICs and their VLANs are gone. Before touching a host's storage, what you want is **the machine as vSphere sees it, ready to import**.
+
+Pick one or more machines and press **Exportar máquinas…**. Each lands in its own folder with the `.ovf`, the stream-optimised disks, a **SHA-256 manifest** checked on import, and a `LEIA-ME.txt` saying what it is and how to restore it. The batch report goes next to them, as text and JSON.
+
+- **No `ovftool`.** `ExportVm` → `HttpNfcLease` → download → `CreateDescriptor`, the lease kept alive and the SHA-256 computed while downloading.
+- **vSphere only exports powered-off machines.** A running one is shut down through VMware Tools **only when explicitly asked, with ENCERRAR typed**, exported, and then powered back on — or left off, for the host maintenance. One at a time, so each is down only for its own copy.
+- **It never powers off by force.** No Tools running, or no shutdown within the time limit: the machine is left alone and the export is reported as failed.
+- **Refused before you confirm, with the reason:** no Tools, suspended, host not responding — and **the session's own vCenter**, whose shutdown would cut the session halfway.
+- **A failed or cancelled export leaves nothing behind.** A folder holding half a disk looks like a backup, which is worse than no folder. The lease is aborted and a machine it shut down is powered back on.
+- **The disk download carries the session cookie**, so it gets the same distrust as the main connection: the pinned certificate for the session's server, or — exporting through vCenter, which sends you to the ESXi host — the thumbprint vCenter itself announced in the lease. It goes straight to the host, **bypassing any proxy** configured on the machine.
 
 ---
 
@@ -124,9 +134,10 @@ There is no `--senha` flag either: a command-line argument is visible in `ps` to
 
 ## Current state
 
-- **691 tests** across three versions (235 Windows · 225 Linux · 231 macOS), **none of which needs a vCenter**
+- **857 tests** across three versions (276 Windows · 294 Linux · 287 macOS), **none of which needs a vCenter** — the export runs against a real local HTTPS server with a pinned certificate, the window against the invented estate
+- Connection, inventory, operations and the window also exercised against VMware's own simulator (`vcsim`), as vCenter and as ESXi; `vcsim` does not implement `ExportVm`, so the export was not run end-to-end against it
 - Health rules, operation guards and the certificate decision all take already-read models and return decisions — which is what makes them testable against an estate invented in `conftest.py`
-- Textual TUI plus a headless text mode with distinct exit codes
+- Tkinter window (dark and light themes) plus a headless text mode with distinct exit codes
 - CI on three native runners — `windows-latest`, `ubuntu-latest`, `macos-latest`
 - Bilingual source, PT-PT and EN-UK
 
@@ -152,20 +163,20 @@ pip install -r requirements.txt
 python -m vfc
 ```
 
-Two dependencies: `pyvmomi` and `textual`. That is all.
+**One** `pip` dependency: `pyvmomi`. The window uses the Tkinter that ships with python.org's Python (on Linux, the `python3-tk` package or its equivalent), and the export uses only VMware's library and the standard library.
 
 ---
 
 ## Usage
 
 ```bash
-python -m vfc                                          # the interface
+python -m vfc                                          # the window
 python -m vfc --diagnostico                            # what this machine is missing
 ./cli.sh --servidor vcenter.local --utilizador admin@vsphere.local
 ./cli.sh --json --seccao estado                        # for automation
 ```
 
-Exit codes: **0** nothing to report · **1** warnings · **2** critical · **3** could not connect. The 3 is separate on purpose — failing to connect is not the same as everything being wrong, and it is the distinction that avoids waking somebody over a network cable.
+Exit codes: **0** nothing to report · **1** warnings · **2** critical · **3** could not connect · **4** the application's signature was altered. The 3 is separate on purpose — failing to connect is not the same as everything being wrong, and it is the distinction that avoids waking somebody over a network cable.
 
 **Text mode writes nothing to vSphere.** A destructive operation with no typed confirmation sits one `Ctrl-R` away from the next time somebody repeats it without thinking. A test fails if such an option ever appears.
 
@@ -179,7 +190,14 @@ Full documentation in [`VMware-Fleet-Console/README.md`](VMware-Fleet-Console/RE
 - **Without DRS, maintenance mode migrates nothing.** The application warns with the count of running machines, but does not move or stop them for you — that is the decision of whoever is doing the work.
 - **It does not create machines, migrate them, or touch networking.** This is a maintenance tool, not an administration console. Those are project operations, and they belong in the web client.
 - **Snapshot size is not always reported.** vCenter is inconsistent about it across versions and datastore types. When it is missing the warning goes without it rather than inventing a number — the age, which is what decides, is always there.
-- **An open session is an open session.** On a large estate the refresh interval is load on vCenter. It is configurable, and zero switches automatic refresh off.
+- **An open session is an open session.** On a large estate the refresh interval is load on vCenter. It is configurable, and zero switches automatic refresh off. It pauses during an export.
+- **The export copies powered-off machines only** — a vSphere rule. Copying without stopping a machine needs a hypervisor-level backup tool.
+
+---
+
+## The signature
+
+The credit — *Created by Redfox using Claude* — lives in one place, `branding.py`, and shows in the title bar, the window's permanent footer, *About*, the text report, every export report, the `LEIA-ME.txt` beside each copy, and the log. It is **sealed**: change or delete it and the application refuses to start (exit code 4). Said honestly: nothing running on someone else's machine is impossible to strip — Python is text — but removal can never be accidental or silent, and the MIT licence requires the copyright notice to be kept in all copies.
 
 ---
 
@@ -192,7 +210,7 @@ MIT — see [`LICENSE`](LICENSE).
 
 ## 🐳 Docker & Terraform
 
-The interactive console needs `-it`; the text mode (`--texto`) is the part to automate. / A consola interactiva precisa de `-it`; o modo de texto (`--texto`) é o que se automatiza.
+The window does not run in a container — there is no screen — so the image is the text mode (`--texto`), which is the part to automate. / A janela não corre num contentor — não há ecrã — por isso a imagem é o modo de texto (`--texto`), que é o que se automatiza.
 
 Files / Ficheiros: [`VMware-Fleet-Console/Linux/Dockerfile`](VMware-Fleet-Console/Linux/Dockerfile) · [`VMware-Fleet-Console/Linux/terraform/`](VMware-Fleet-Console/Linux/terraform/)
 
@@ -206,10 +224,10 @@ docker run --rm local/vmware-fleet-console --help
 
 Everything the app reads or writes lives in `/dados`; mount a folder there and run as your own user (`--user`) so the files it writes are yours. / Tudo o que a aplicação lê ou escreve vive em `/dados`; monte lá uma pasta e corra com o seu utilizador (`--user`) para os ficheiros escritos serem seus.
 
-Interactive console / Consola interactiva:
+Text report, asking for the password interactively / Relatório em texto, a pedir a senha:
 
 ```bash
-docker run --rm -it -v vfc-dados:/dados local/vmware-fleet-console
+docker run --rm -it -v vfc-dados:/dados local/vmware-fleet-console --texto --servidor vcenter.example.com --utilizador leitura@vsphere.local
 ```
 
 Text report in JSON, for automation / Relatório em JSON, para automação:

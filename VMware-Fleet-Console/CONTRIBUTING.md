@@ -71,7 +71,7 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
 
-python -m pytest                 # 235 / 225 / 231, conforme a versão
+python -m pytest                 # 276 / 294 / 287, conforme a versão (Windows / Linux / macOS)
 python -m ruff check .
 python -m mypy src               # opcional
 ```
@@ -102,7 +102,10 @@ O ficheiro decide o que pode fazer:
 | `collect.py` (`collect_fleet`) | sim | a recolha |
 | `connection.py` | sim | a ligação e o certificado |
 | `cli.py` | **não** | a formatação em texto e JSON |
-| `tui/` | — | **o único sítio que importa Textual** |
+| `export.py` (`check_export`) | **não** | as decisões sobre a exportação |
+| `export.py` (`Exporter`) | sim | a exportação, que confirma outra vez o estado vivo |
+| `branding.py` | **não** | a assinatura e o selo — o único sítio onde o crédito é escrito |
+| `gui/` | — | **o único sítio que importa o `tkinter`** |
 
 Esta separação não é arrumação: é o que torna quase tudo testável. Uma regra nova
 que precise de fazer uma chamada ao vCenter está na camada errada — o que ela
@@ -127,6 +130,13 @@ decisão. Ver `connection.py`.
 
 **4. O modo de texto não escreve no vSphere.** Há um teste que falha se aparecer
 uma opção de operação na linha de comandos.
+
+**5. A exportação nunca desliga uma máquina à força**, e uma máquina que ela
+encerrou volta a ser ligada mesmo quando a cópia falha (se era para voltar). Há
+testes para os dois — e para a pasta a meio ser apagada.
+
+**6. A assinatura não se tira.** O crédito vive em `branding.py` e está selado;
+`test_branding.py` falha se mudar, e cada ficheiro de código tem de o levar.
 
 ---
 

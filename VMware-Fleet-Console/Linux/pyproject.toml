@@ -9,13 +9,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vmware-fleet-console-linux"
-version = "1.0.0"
-description = "Estado e manutencao de vCenter e ESXi a partir do terminal / vCenter and ESXi state and maintenance from the terminal"
+version = "2.0.0"
+description = "Estado, manutencao e exportacao OVF de vCenter e ESXi, com interface grafica / vCenter and ESXi state, maintenance and OVF export, with a graphical interface"
 readme = "LEIA-ME.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Rafael Santos (Redfox)" }]
-keywords = ["vmware", "vsphere", "vcenter", "esxi", "pyvmomi", "tui", "textual", "sysadmin"]
+keywords = ["vmware", "vsphere", "vcenter", "esxi", "pyvmomi", "ovf", "export", "backup", "gui", "tkinter", "sysadmin"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -29,9 +29,12 @@ classifiers = [
     "Topic :: System :: Systems Administration",
     "Topic :: System :: Monitoring",
 ]
+# PT-PT: O Tkinter da janela vem do sistema (python3-tk e afins, ou o Python
+#        do python.org); não é um pacote do pip e por isso não aparece aqui.
+# EN-UK: The window's Tkinter comes from the system (python3-tk and kin, or
+#        python.org's Python); not a pip package, hence absent here.
 dependencies = [
     "pyvmomi>=8.0.2,<9.0",
-    "textual>=0.79,<2.0",
 ]
 
 [project.optional-dependencies]

@@ -5,9 +5,10 @@ PT-PT: Testes das particularidades do Windows, na versão de Windows da
 
        As outras duas versões têm os seus, nas pastas ao lado, e testam coisas
        diferentes — porque as particularidades de cada sistema são diferentes.
-       Aqui testa-se a detecção do `python.exe` da Microsoft Store, o terminal e
-       a página de código; na de Linux testa-se a distribuição; na de macOS, a
-       arquitectura e o Homebrew.
+       Aqui testa-se a detecção do `python.exe` da Microsoft Store, o Tkinter da
+       janela e a página de código do modo de texto; na de Linux testa-se a
+       distribuição e o ambiente gráfico; na de macOS, a arquitectura e o
+       Homebrew.
 
        O último teste desta suite é o que mantém a promessa das três versões:
        falha se alguém puser uma ramificação por sistema operativo dentro desta.
@@ -28,7 +29,6 @@ import pytest
 
 from vfc import platform_support as ps
 from vfc.config import APP_FOLDER_NAME, app_data_dir
-from vfc.platform_support import Terminal
 
 
 class TestPythonDaMicrosoftStore:
@@ -76,46 +76,34 @@ class TestPythonDaMicrosoftStore:
         assert requisitos["Origem do Python"].essential
 
 
-class TestTerminal:
-    """PT-PT: Onde isto está a correr. / EN-UK: Where this is running."""
+class TestJanela:
+    """PT-PT: O que a interface gráfica precisa. / EN-UK: What the window needs."""
 
-    def test_windows_terminal_pela_variavel(self) -> None:
-        assert ps.detect_terminal({"WT_SESSION": "abc-123"}) is Terminal.WINDOWS_TERMINAL
-
-    def test_vscode(self) -> None:
-        assert ps.detect_terminal({"TERM_PROGRAM": "vscode"}) is Terminal.VSCODE
-
-    def test_consola_classica(self) -> None:
-        assert ps.detect_terminal({"ComSpec": r"C:\Windows\system32\cmd.exe"}) is Terminal.CONHOST
-
-    def test_ambiente_vazio(self) -> None:
-        # PT-PT: Em Windows a ComSpec esta sempre definida. A sua ausencia nao
-        #        quer dizer "consola classica" — quer dizer que nao se esta a
-        #        olhar para um ambiente de Windows. Adivinhar CONHOST aqui poria
-        #        no diagnostico um aviso sobre um terminal que ninguem usa.
-        # EN-UK: On Windows ComSpec is always set. Its absence does not mean
-        #        "classic console", it means this is not a Windows environment.
-        assert ps.detect_terminal({}) is Terminal.UNKNOWN
-
-    def test_o_windows_terminal_ganha_ao_comspec(self) -> None:
-        # PT-PT: O ComSpec está definido em toda a parte, incluindo dentro do
-        #        Windows Terminal. Sem esta ordem, nunca se detectaria o bom.
-        # EN-UK: ComSpec is set everywhere, including inside Windows Terminal.
-        #        Without this order the good one would never be detected.
-        ambiente = {"WT_SESSION": "x", "ComSpec": r"C:\Windows\system32\cmd.exe"}
-        assert ps.detect_terminal(ambiente) is Terminal.WINDOWS_TERMINAL
-
-    def test_a_consola_classica_nao_impede_nada(self) -> None:
-        # PT-PT: Fica feia e funciona. Recusar desenhar seria pior do que
-        #        desenhar mal.
-        # EN-UK: It looks bad and works. Refusing to draw would be worse than
-        #        drawing badly.
+    def test_o_tkinter_nao_e_essencial(self) -> None:
+        # PT-PT: Sem Tkinter abre-se o modo de texto: perde-se a janela, não a
+        #        aplicação.
+        # EN-UK: Without Tkinter, text mode opens: the window is lost, not the
+        #        application.
         requisitos = {r.name: r for r in ps.check_requirements()}
-        assert not requisitos["Terminal"].essential
+        assert not requisitos["Tkinter"].essential
 
-    def test_tamanho_tem_sempre_uma_resposta(self) -> None:
-        colunas, linhas = ps.terminal_size()
-        assert colunas > 0 and linhas > 0
+    def test_sem_tkinter_diz_como_o_instalar(self) -> None:
+        requisitos = {r.name: r for r in ps.check_requirements()}
+        assert "tcl/tk" in requisitos["Tkinter"].command
+
+    def test_em_windows_a_janela_so_depende_do_tkinter(self) -> None:
+        assert ps.gui_available() is ps.tkinter_available()
+
+    def test_preparar_a_janela_nunca_rebenta(self) -> None:
+        # PT-PT: Fora de Windows (nos runners de CI) não há `windll`; a função
+        #        tem de seguir em frente sem consciência de DPI.
+        # EN-UK: Outside Windows (CI runners) there is no `windll`; the function
+        #        must carry on without DPI awareness.
+        ps.prepare_gui()
+
+    def test_ha_letras_preferidas(self) -> None:
+        assert ps.UI_FONT_FAMILIES[0] == "Segoe UI"
+        assert ps.UI_FONT_SIZE > 0
 
 
 class TestPastaDeDados:
@@ -174,10 +162,9 @@ class TestDiagnostico:
         nomes = {r.name for r in ps.check_requirements()}
         assert {"Python", "Origem do Python", "pyVmomi"} <= nomes
 
-    def test_o_pyvmomi_e_essencial_e_o_textual_nao(self) -> None:
+    def test_o_pyvmomi_e_essencial(self) -> None:
         requisitos = {r.name: r for r in ps.check_requirements()}
         assert requisitos["pyVmomi"].essential
-        assert not requisitos["Textual"].essential
 
     def test_um_requisito_em_falta_diz_como_o_resolver(self) -> None:
         em_falta = [r for r in ps.check_requirements() if not r.present and r.command]

@@ -194,6 +194,52 @@ class OperationRefusedError(RuntimeError):
     """
 
 
+def explain_failure(erro: BaseException) -> str:
+    """
+    PT-PT: A mensagem do vSphere, traduzida onde vale a pena.
+
+           Vivia na TUI; mudou-se para aqui na 2.0 porque agora há dois sítios
+           que a usam — as operações da interface e a exportação — e uma
+           tradução que existe duas vezes acaba por dizer duas coisas.
+
+           `RestrictedVersion` é a que mais confunde: aparece quando se tenta
+           escrever num ESXi com licença gratuita, e o texto original não diz
+           nada sobre licenças.
+
+    EN-UK: vSphere's message, translated where it is worth it. It lived in the
+           TUI; it moved here in 2.0 because two places now use it — interface
+           operations and export — and a translation that exists twice ends up
+           saying two things. `RestrictedVersion` is the confusing one: it shows
+           up when writing to a free-licensed ESXi and says nothing about
+           licences.
+    """
+    texto = str(getattr(erro, "msg", "") or erro)
+    nome = type(erro).__name__
+    if "RestrictedVersion" in nome or "RestrictedVersion" in texto:
+        return (
+            "O servidor recusou a operação por causa do licenciamento. Num ESXi com a "
+            "licença gratuita a API do vSphere é só de leitura: esta operação só é "
+            "possível pelo cliente web do anfitrião ou com uma licença que a permita."
+        )
+    if "NoPermission" in nome:
+        return "A conta não tem permissões para esta operação neste objecto."
+    if "InvalidPowerState" in nome:
+        return (
+            "O estado de alimentação da máquina mudou entretanto. Actualize o inventário "
+            "e tente outra vez."
+        )
+    if "InvalidState" in nome:
+        return (
+            "O objecto já não está no estado em que estava quando a operação foi pedida. "
+            "Actualize o inventário e tente outra vez."
+        )
+    if "TaskInProgress" in nome:
+        return "Já há uma tarefa a correr neste objecto. Espere que termine."
+    if "NotAuthenticated" in nome:
+        return "A sessão no servidor expirou. Termine a sessão e volte a ligar."
+    return f"O servidor recusou a operação: {texto}"
+
+
 # ---------------------------------------------------------------------------
 # PT-PT: Guardas das máquinas virtuais.
 # EN-UK: Virtual machine guards.

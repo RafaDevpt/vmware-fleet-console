@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-PT-PT: O modo de texto: o mesmo trabalho, sem interface.
+PT-PT: O modo de texto: o mesmo diagnóstico, sem janela.
 
        Existe por três razões, e nenhuma delas é ser um plano B triste:
 
-       1. **Terminais que não aguentam uma TUI.** Uma consola série, uma sessão
-          `TERM=dumb`, um terminal de 40 colunas numa ligação de emergência —
-          é exactamente quando se precisa de ver o estado do parque, e é
-          exactamente quando a interface bonita não desenha.
+       1. **Onde não há janela.** Uma sessão SSH, um servidor sem ambiente
+          gráfico, uma consola série numa ligação de emergência — é
+          exactamente quando se precisa de ver o estado do parque, e é
+          exactamente quando a interface gráfica não abre.
        2. **Automação.** `vfc estado --json` num cron às sete da manhã, e um
           código de saída que diz se há alguma coisa mal sem ninguém ler nada.
        3. **Um sítio onde a saída se pode colar.** O que se lê de um painel
@@ -17,21 +17,22 @@ PT-PT: O modo de texto: o mesmo trabalho, sem interface.
        a convenção que qualquer sistema de monitorização já sabe ler:
        **0 tudo bem, 1 há avisos, 2 há problemas críticos**, e 3 quando nem
        sequer se conseguiu ligar — que não é a mesma coisa que estar tudo mal, e
-       é a distinção que evita acordar alguém por causa de um cabo de rede.
+       é a distinção que evita acordar alguém por causa de um cabo de rede. O
+       4 diz que a assinatura da aplicação foi alterada e ela recusou arrancar.
 
-EN-UK: Text mode: the same work, without the interface.
+EN-UK: Text mode: the same diagnosis, without a window.
 
        It exists for three reasons, none of which is being a sad fallback.
-       Terminals that cannot carry a TUI — a serial console, a `TERM=dumb`
-       session, forty columns over an emergency link — are exactly when the
-       estate's state is needed and exactly when the pretty interface will not
-       draw. Automation: `vfc estado --json` from cron at seven in the morning.
+       Where there is no window — an SSH session, a headless server, a serial
+       console over an emergency link — is exactly when the estate's state is
+       needed and exactly when the graphical interface will not open. Automation: `vfc estado --json` from cron at seven in the morning.
        And a place where output can be pasted into an email.
 
        The exit code follows the convention any monitoring system already reads:
        **0 well, 1 warnings, 2 critical**, and 3 when the connection itself
        failed — which is not the same as everything being wrong, and is the
-       distinction that avoids waking somebody over a network cable.
+       distinction that avoids waking somebody over a network cable. 4 means
+       the application's signature was altered and it refused to start.
 
 Created by Redfox using Claude
 """
@@ -43,13 +44,14 @@ import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 
-from . import health
+from . import __version__, branding, health
 from .models import Fleet, Severity, format_bytes, format_uptime
 
 EXIT_OK = 0
 EXIT_WARNING = 1
 EXIT_CRITICAL = 2
 EXIT_UNREACHABLE = 3
+EXIT_TAMPERED = 4
 
 
 def exit_code_for(findings: list) -> int:
@@ -259,6 +261,7 @@ def render_report(fleet: Fleet, findings: list) -> str:
             render_datastores(fleet),
             render_vms(fleet),
             render_findings(findings),
+            f"{branding.APP_NAME} {__version__} · {branding.CREDIT}",
         ]
     )
 

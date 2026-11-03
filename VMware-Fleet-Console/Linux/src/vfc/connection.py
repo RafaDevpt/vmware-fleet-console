@@ -165,23 +165,18 @@ def fingerprint_of(der_bytes: bytes) -> str:
     return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
 
 
-def _fetch_peer(host: str, port: int, timeout: float) -> tuple[bytes, dict]:
+def _fetch_der(host: str, port: int, timeout: float) -> bytes:
     """
     PT-PT: Os bytes do certificado apresentado, sem o validar.
 
-           Isolado numa função só para isto porque há dois sítios que precisam
-           dos mesmos bytes: `fetch_certificate`, para mostrar a impressão
-           digital a quem decide, e `_build_context`, para a impor no aperto de
-           mão. Antes só o primeiro existia, e o segundo confiava no trabalho do
-           primeiro numa ligação diferente — que era precisamente a falha.
+           Há dois sítios que precisam dos mesmos bytes: `fetch_certificate`,
+           para mostrar a impressão digital a quem decide, e `_build_context`,
+           para a impor no aperto de mão.
 
-    EN-UK: The bytes of the presented certificate, without validating it.
-
-           Pulled out into its own function because two places need the same
-           bytes: `fetch_certificate`, to show the fingerprint to whoever
-           decides, and `_build_context`, to enforce it in the handshake.
-           Previously only the first existed and the second trusted the first's
-           work on a different connection — which was exactly the flaw.
+    EN-UK: The bytes of the presented certificate, without validating it. Two
+           places need the same bytes: `fetch_certificate`, to show the
+           fingerprint to whoever decides, and `_build_context`, to enforce it
+           in the handshake.
     """
     contexto = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     contexto.check_hostname = False
@@ -205,13 +200,96 @@ def _fetch_peer(host: str, port: int, timeout: float) -> tuple[bytes, dict]:
         socket.create_connection((host, port), timeout=timeout) as bruto,
         contexto.wrap_socket(bruto, server_hostname=host) as seguro,
     ):
-        return seguro.getpeercert(binary_form=True) or b"", seguro.getpeercert() or {}
+        return seguro.getpeercert(binary_form=True) or b""
 
 
-def _fetch_der(host: str, port: int, timeout: float) -> bytes:
-    """PT-PT: Só os bytes. / EN-UK: The bytes alone."""
-    der, _ = _fetch_peer(host, port, timeout)
-    return der
+# PT-PT: Os atributos de nome que aparecem nos certificados de ESXi e vCenter.
+# EN-UK: The name attributes found in ESXi and vCenter certificates.
+_NAME_OIDS = {
+    bytes.fromhex("550403"): "CN",
+    bytes.fromhex("55040a"): "O",
+    bytes.fromhex("55040b"): "OU",
+    bytes.fromhex("550406"): "C",
+    bytes.fromhex("550407"): "L",
+    bytes.fromhex("550408"): "ST",
+    bytes.fromhex("0992268993f22c640119"): "DC",
+    bytes.fromhex("2a864886f70d010901"): "E",
+}
+
+
+def _tlv(dados: bytes, posicao: int) -> tuple[int, int, int]:
+    """PT-PT: Uma etiqueta DER: (tipo, início, fim do valor). / EN-UK: One DER TLV."""
+    etiqueta = dados[posicao]
+    tamanho = dados[posicao + 1]
+    inicio = posicao + 2
+    if tamanho & 0x80:
+        octetos = tamanho & 0x7F
+        tamanho = int.from_bytes(dados[inicio : inicio + octetos], "big")
+        inicio += octetos
+    fim = inicio + tamanho
+    if fim > len(dados):
+        raise ValueError("DER truncado")
+    return etiqueta, inicio, fim
+
+
+def _children(dados: bytes, inicio: int, fim: int) -> list[tuple[int, int, int]]:
+    filhos = []
+    while inicio < fim:
+        etiqueta, a, b = _tlv(dados, inicio)
+        filhos.append((etiqueta, a, b))
+        inicio = b
+    return filhos
+
+
+def _name(dados: bytes, inicio: int, fim: int) -> str:
+    partes = []
+    for _, a, b in _children(dados, inicio, fim):  # cada SET
+        for _, c, d in _children(dados, a, b):  # cada SEQUENCE {OID, valor}
+            campos = _children(dados, c, d)
+            if len(campos) != 2:
+                continue
+            (_, oa, ob), (tipo, va, vb) = campos
+            valor = dados[va:vb]
+            texto = valor.decode("utf-16-be" if tipo == 0x1E else "utf-8", errors="replace")
+            partes.append(f"{_NAME_OIDS.get(dados[oa:ob], 'OID')}={texto}")
+    return ", ".join(partes)
+
+
+def describe_der(der: bytes) -> tuple[str, str, str]:
+    """
+    PT-PT: O sujeito, o emissor e a validade de um certificado, lidos do DER.
+
+           **A correcção da 2.0.** A 1.0 pedia estes campos ao `getpeercert()`,
+           que só os devolve quando o certificado foi *validado* — e o
+           certificado que interessa mostrar é precisamente o que não valida.
+           O diálogo saía sempre com os três campos vazios. Agora lêem-se do
+           próprio certificado, só para mostrar: quem decide continua a ser a
+           impressão digital.
+
+    EN-UK: Subject, issuer and expiry, read from the DER. **The 2.0 fix**: 1.0
+           asked `getpeercert()`, which only returns them for a *validated*
+           certificate — and the one worth showing is precisely the one that
+           does not validate, so the dialog always showed three blanks. Display
+           only: the fingerprint still decides.
+    """
+    try:
+        _, a, b = _tlv(der, 0)
+        _, ta, tb = _children(der, a, b)[0]
+        campos = _children(der, ta, tb)
+        if campos and campos[0][0] == 0xA0:
+            campos = campos[1:]
+        # PT-PT: série, algoritmo, emissor, validade, sujeito.
+        # EN-UK: serial, algorithm, issuer, validity, subject.
+        _, _, emissor, validade, sujeito = campos[:5]
+        fim_validade = _children(der, validade[1], validade[2])[1]
+        bruto = der[fim_validade[1] : fim_validade[2]].decode("ascii")
+        if fim_validade[0] == 0x17:  # UTCTime, AAMMDD
+            ano = int(bruto[:2])
+            bruto = ("19" if ano >= 50 else "20") + bruto
+        validade_texto = f"{bruto[:4]}-{bruto[4:6]}-{bruto[6:8]} {bruto[8:10]}:{bruto[10:12]} UTC"
+        return _name(der, sujeito[1], sujeito[2]), _name(der, emissor[1], emissor[2]), validade_texto
+    except (IndexError, ValueError, UnicodeDecodeError):
+        return "", "", ""
 
 
 def fetch_certificate(host: str, port: int = DEFAULT_PORT, timeout: float = 10.0) -> CertificateInfo:
@@ -227,34 +305,18 @@ def fetch_certificate(host: str, port: int = DEFAULT_PORT, timeout: float = 10.0
     EN-UK: Fetches the certificate without validating it, purely to be able to
            show it. This uses an unverified context on purpose, and it is the
            only place in the program that does — **no credentials travel here**.
-           The point is to get the certificate bytes to compute the fingerprint
-           the person will compare. Authentication happens afterwards, on
-           another connection, with the decision already made.
+           Authentication happens afterwards, on another connection, with the
+           decision already made.
     """
-    der, decodificado = _fetch_peer(host, port, timeout)
-
+    der = _fetch_der(host, port, timeout)
     if not der:
         return CertificateInfo()
-
-    def _juntar(campo: object) -> str:
-        """PT-PT: O formato do ssl é aninhado. / EN-UK: ssl's format is nested."""
-        if not isinstance(campo, tuple):
-            return ""
-        partes = []
-        for grupo in campo:
-            for par in grupo:
-                if isinstance(par, tuple) and len(par) == 2:
-                    partes.append(f"{par[0]}={par[1]}")
-        return ", ".join(partes)
-
-    sujeito = _juntar(decodificado.get("subject"))
-    emissor = _juntar(decodificado.get("issuer"))
-
+    sujeito, emissor, validade = describe_der(der)
     return CertificateInfo(
         fingerprint_sha256=fingerprint_of(der),
         subject=sujeito,
         issuer=emissor,
-        not_after=str(decodificado.get("notAfter", "")),
+        not_after=validade,
         self_signed=bool(sujeito) and sujeito == emissor,
     )
 
@@ -419,9 +481,21 @@ class Session:
            somebody seeing it for the first time.
     """
 
-    def __init__(self, service_instance: object, endpoint: Endpoint) -> None:
+    def __init__(
+        self,
+        service_instance: object,
+        endpoint: Endpoint,
+        ssl_context: ssl.SSLContext | None = None,
+    ) -> None:
         self.si = service_instance
         self.endpoint = endpoint
+        # PT-PT: O contexto com que a sessão foi aberta — o que já tem a
+        #        impressão digital aceite. A exportação reutiliza-o para os
+        #        discos quando eles vêm do mesmo servidor.
+        # EN-UK: The context the session was opened with — the one already
+        #        carrying the accepted fingerprint. Export reuses it for the
+        #        disks when they come from the same server.
+        self.ssl_context = ssl_context or ssl.create_default_context()
         self._content = None
 
     # -- PT-PT: Identidade do servidor. / EN-UK: Server identity. -----------
@@ -555,6 +629,27 @@ class Session:
             )
         return encontrado
 
+    def cookie_header(self) -> str:
+        """
+        PT-PT: O cookie da sessão, no formato do cabeçalho `Cookie`.
+
+               O pyVmomi guarda-o como veio no `Set-Cookie` — com `Path`,
+               `HttpOnly` e companhia. Para o enviar só interessa o primeiro par
+               `nome=valor`; o resto são atributos para o cliente, não para o
+               servidor.
+
+        EN-UK: The session cookie, shaped for the `Cookie` header. pyVmomi keeps
+               it as it arrived in `Set-Cookie`, attributes and all; only the
+               first `name=value` pair is sent back.
+
+        >>> class _S: cookie = 'vmware_soap_session="52a"; Path=/; HttpOnly; Secure;'
+        >>> class _I: _stub = _S()
+        >>> Session(_I(), Endpoint("h", "u")).cookie_header()
+        'vmware_soap_session="52a"'
+        """
+        bruto = str(getattr(getattr(self.si, "_stub", None), "cookie", "") or "")
+        return bruto.split(";", 1)[0].strip()
+
     def close(self) -> None:
         """PT-PT: Fecha a sessão no servidor. / EN-UK: Closes the server session."""
         try:
@@ -641,7 +736,7 @@ def connect(
     if instancia is None:
         raise VSphereConnectionError("O servidor aceitou a ligação mas não devolveu uma sessão.")
 
-    return Session(instancia, endpoint)
+    return Session(instancia, endpoint, contexto)
 
 
 def _build_context(
@@ -719,15 +814,137 @@ def _build_context(
             "A ligação foi interrompida antes de enviar credenciais."
         )
 
-    contexto = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    contexto.check_hostname = False
-    contexto.verify_mode = ssl.CERT_REQUIRED
-    # PT-PT: O próprio certificado aceite é a âncora. Nada mais é aceite.
-    # EN-UK: The accepted certificate is itself the anchor. Nothing else passes.
-    contexto.load_verify_locations(cadata=ssl.DER_cert_to_PEM_cert(der))
     logger.info(
         "A ligar a %s com a impressão digital aceite %s, imposta no aperto de mão",
         endpoint.host,
         esperada[:17],
     )
+    return _anchored_context(der)
+
+
+def _anchored_context(der: bytes) -> ssl.SSLContext:
+    """
+    PT-PT: Um contexto TLS que só aceita este certificado exacto.
+
+           **A correcção da 2.0.** Na 1.0 o certificado aceite era carregado
+           como âncora, mas sem `VERIFY_X509_PARTIAL_CHAIN`. Com isso o OpenSSL
+           insiste em subir a cadeia até uma raiz auto-assinada. Num ESXi com o
+           certificado de fábrica não se notava, porque esse certificado é a sua
+           própria raiz. Num ESXi gerido por um vCenter o certificado é emitido
+           pela VMCA (a autoridade interna do vCenter), não é auto-assinado, e o
+           aperto de mão falhava sempre — mesmo depois de alguém ter comparado e
+           aceite a impressão digital. Com a flag, o certificado aceite basta
+           por si: é exactamente o que "fixar a impressão digital" quer dizer.
+
+    EN-UK: A TLS context that accepts this exact certificate and nothing else.
+
+           **The 2.0 fix.** In 1.0 the accepted certificate was loaded as the
+           anchor without `VERIFY_X509_PARTIAL_CHAIN`, so OpenSSL insisted on
+           climbing to a self-signed root. A factory ESXi certificate is its own
+           root, so nobody noticed. A vCenter-managed ESXi carries a certificate
+           issued by the VMCA, which is not self-signed, and the handshake always
+           failed — even after the fingerprint had been compared and accepted.
+           With the flag, the accepted certificate suffices on its own, which is
+           exactly what pinning means.
+    """
+    contexto = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    contexto.check_hostname = False
+    contexto.verify_mode = ssl.CERT_REQUIRED
+    contexto.verify_flags |= ssl.VERIFY_X509_PARTIAL_CHAIN
+    # PT-PT: O próprio certificado aceite é a âncora. Nada mais é aceite.
+    # EN-UK: The accepted certificate is itself the anchor. Nothing else passes.
+    contexto.load_verify_locations(cadata=ssl.DER_cert_to_PEM_cert(der))
     return contexto
+
+
+def sha1_fingerprint_of(der_bytes: bytes) -> str:
+    """
+    PT-PT: A impressão digital SHA-1, no mesmo formato da SHA-256.
+
+           Só existe por uma razão: é o formato em que o vSphere anuncia, na
+           concessão de exportação (`HttpNfcLeaseDeviceUrl.sslThumbprint`), o
+           certificado do anfitrião de onde os discos vão ser descarregados.
+           Não é usada para decidir confiança em nada que a pessoa veja — só
+           para confirmar que o anfitrião de transferência é aquele que o
+           próprio servidor autenticado disse que era.
+
+    EN-UK: The SHA-1 fingerprint, in the same format as the SHA-256 one. It
+           exists for one reason: it is the format vSphere uses, in the export
+           lease, to announce the certificate of the host the disks will be
+           downloaded from. It decides no trust shown to a person — it only
+           confirms the transfer host is the one the authenticated server said.
+
+    >>> sha1_fingerprint_of(b"")[:5]
+    'DA:39'
+    """
+    digest = hashlib.sha1(der_bytes).hexdigest().upper()  # noqa: S324 - formato imposto pelo vSphere
+    return ":".join(digest[i : i + 2] for i in range(0, len(digest), 2))
+
+
+def transfer_context(
+    session: Session,
+    host: str,
+    port: int = DEFAULT_PORT,
+    sha1_thumbprint: str = "",
+    timeout: float = 10.0,
+) -> ssl.SSLContext:
+    """
+    PT-PT: O contexto TLS para descarregar os discos de uma exportação.
+
+           A sessão no servidor serve de cookie, por isso este pedido leva
+           credenciais e merece a mesma desconfiança que a ligação principal:
+
+           1. **O mesmo servidor** a que a sessão está ligada (é o caso de uma
+              ligação directa ao ESXi): reutiliza-se o contexto da sessão, com
+              a impressão digital que alguém aceitou.
+           2. **Outro anfitrião** (exportar através do vCenter: os discos vêm do
+              ESXi onde a máquina está). O vCenter anuncia a impressão digital
+              SHA-1 desse anfitrião na concessão, e essa resposta veio pela
+              ligação já autenticada. Compara-se o certificado apresentado com
+              ela e só depois se envia o cookie.
+           3. **Outro anfitrião sem impressão digital anunciada**: só passa se a
+              cadeia validar com as autoridades desta máquina. Se não validar,
+              pára — e a mensagem diz o que fazer.
+
+    EN-UK: The TLS context for downloading an export's disks. The server
+           session travels as a cookie, so this request carries credentials and
+           deserves the same distrust as the main connection: the same server
+           reuses the session's pinned context; another host (exporting through
+           vCenter) is checked against the SHA-1 thumbprint vCenter announced in
+           the lease over the already-authenticated connection; another host
+           with no announced thumbprint passes only if its chain validates.
+    """
+    if host.strip().casefold() == session.endpoint.host.strip().casefold():
+        return session.ssl_context
+
+    esperada = (sha1_thumbprint or "").strip().upper()
+    if esperada:
+        try:
+            der = _fetch_der(host, port, timeout)
+        except OSError as erro:
+            raise VSphereConnectionError(
+                f"Não foi possível chegar ao anfitrião de transferência {host}:{port} — {erro}.\n"
+                "Os discos vêm directamente do ESXi onde a máquina está: este computador "
+                "tem de resolver o nome dele e chegar-lhe pela porta 443."
+            ) from erro
+        actual = sha1_fingerprint_of(der)
+        if actual != esperada:
+            raise VSphereConnectionError(
+                f"O certificado de {host} não é o que o vCenter anunciou para esta "
+                "transferência.\n"
+                f"  Anunciado: {esperada}\n"
+                f"  Recebido:  {actual}\n"
+                "A transferência foi interrompida antes de enviar a sessão."
+            )
+        return _anchored_context(der)
+
+    if _chain_validates(host, port, timeout):
+        return ssl.create_default_context()
+
+    raise VSphereConnectionError(
+        f"O certificado de {host} não valida neste computador e o servidor não anunciou "
+        "a impressão digital dele.\n"
+        "Duas saídas: instalar neste computador a autoridade de certificação do vCenter "
+        "(https://<vcenter>/certs/download.zip), ou ligar directamente ao ESXi e "
+        "exportar a partir daí."
+    )

@@ -13,7 +13,7 @@ PT-PT: O registo, e o que nunca pode aparecer nele.
        linha de defesa, para o dia em que alguém acrescente um `logger.debug`
        com o dicionário de parâmetros todo lá dentro.
 
-       A rotação também não é arrumação: uma TUI que actualiza de minuto a
+       A rotação também não é arrumação: uma janela que actualiza de minuto a
        minuto durante um mês escreve muito, e um ficheiro de registo que enche a
        partição do utilizador é uma avaria causada pela ferramenta que devia
        ajudar a evitá-las.
@@ -39,6 +39,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import re
+import sys
 from pathlib import Path
 
 from . import config
@@ -89,16 +90,17 @@ def setup(verbose: bool = False, to_file: bool = True) -> Path | None:
     """
     PT-PT: Prepara o registo e devolve o caminho do ficheiro, se houver.
 
-           A consola fica no nível de aviso mesmo em modo detalhado. Numa TUI, o
-           que se escrever na saída padrão passa por cima do desenho do ecrã, e
-           uma aplicação cujo painel fica riscado de linhas de `DEBUG` é
-           inutilizável. O detalhe vai todo para o ficheiro, que é onde serve.
+           A consola fica no nível de aviso mesmo em modo detalhado. No modo
+           de texto, o que se escreve na saída padrão é o relatório — e um
+           relatório entremeado de linhas de `DEBUG` deixa de se poder colar
+           num email ou ler num script. O detalhe vai todo para o ficheiro, que
+           é onde serve.
 
     EN-UK: Sets the logging up and returns the file's path, if there is one.
-           The console stays at warning level even in verbose mode: in a TUI,
-           anything written to standard output paints over the screen, and a
-           panel scratched through with `DEBUG` lines is unusable. The detail
-           all goes to the file, which is where it is any use.
+           The console stays at warning level even in verbose mode: in text
+           mode, standard output *is* the report, and one interleaved with
+           `DEBUG` lines can no longer be pasted or parsed. The detail all goes
+           to the file, which is where it is any use.
     """
     raiz = logging.getLogger()
     raiz.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -108,11 +110,16 @@ def setup(verbose: bool = False, to_file: bool = True) -> Path | None:
 
     filtro = RedactingFilter()
 
-    consola = logging.StreamHandler()
-    consola.setLevel(logging.WARNING)
-    consola.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-    consola.addFilter(filtro)
-    raiz.addHandler(consola)
+    # PT-PT: Arrancada sem consola (`pythonw`), não há `stderr` para onde
+    #        escrever — fica só o ficheiro.
+    # EN-UK: Started with no console (`pythonw`), there is no `stderr` to write
+    #        to — only the file remains.
+    if sys.stderr is not None:
+        consola = logging.StreamHandler()
+        consola.setLevel(logging.WARNING)
+        consola.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        consola.addFilter(filtro)
+        raiz.addHandler(consola)
 
     if not to_file:
         return None

@@ -154,16 +154,32 @@ class TestPastaDeDados:
         assert app_data_dir() == esperado
 
 
-class TestTerminal:
-    """PT-PT: O que a TUI precisa. / EN-UK: What the TUI needs."""
+class TestJanela:
+    """PT-PT: O que a interface gráfica precisa. / EN-UK: What the window needs."""
 
-    def test_tamanho_tem_sempre_uma_resposta(self) -> None:
-        colunas, linhas = ps.terminal_size()
-        assert colunas > 0 and linhas > 0
+    def test_num_mac_a_janela_so_depende_do_tkinter(self) -> None:
+        assert ps.gui_available() is ps.tkinter_available()
 
-    def test_term_dumb_nao_aguenta_a_interface(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("TERM", "dumb")
-        assert not ps.terminal_is_capable()
+    def test_o_tkinter_nao_e_essencial(self) -> None:
+        requisitos = {r.name: r for r in ps.check_requirements()}
+        assert not requisitos["Tkinter"].essential
+
+    def test_o_conselho_do_tkinter_e_para_esta_versao_do_python(self) -> None:
+        # PT-PT: O `python-tk` do Homebrew é por versão: o de 3.12 não serve a
+        #        3.13. Sem Homebrew, o conselho é o python.org.
+        # EN-UK: Homebrew's `python-tk` is per version. Without Homebrew, the
+        #        advice is python.org.
+        import sys
+
+        conselho = {r.name: r for r in ps.check_requirements()}["Tkinter"].command
+        assert f"{sys.version_info.major}.{sys.version_info.minor}" in conselho or "python.org" in conselho
+
+    def test_letras_do_sistema(self) -> None:
+        assert ps.UI_FONT_FAMILIES[0] == ".AppleSystemUIFont"
+        assert ps.UI_FONT_SIZE == 13
+
+    def test_preparar_a_janela_nao_faz_nada_nem_rebenta(self) -> None:
+        assert ps.prepare_gui() is None
 
 
 class TestDiagnostico:
@@ -180,10 +196,9 @@ class TestDiagnostico:
         nomes = {r.name for r in ps.check_requirements()}
         assert {"Python", "Arquitectura", "Homebrew", "pyVmomi"} <= nomes
 
-    def test_o_pyvmomi_e_essencial_e_o_textual_nao(self) -> None:
+    def test_o_pyvmomi_e_essencial(self) -> None:
         requisitos = {r.name: r for r in ps.check_requirements()}
         assert requisitos["pyVmomi"].essential
-        assert not requisitos["Textual"].essential
 
 
 class TestSemRamificacaoPorSistema:

@@ -2,21 +2,22 @@
 # ===========================================================================
 # PT-PT: Modo de texto da VMware Fleet Console em macOS.
 #
-#        O mesmo programa, sem interface. Para terminais que nao aguentam uma
-#        TUI, e para automacao: o codigo de saida diz o estado do parque sem
-#        ninguem ler nada.
+#        O mesmo diagnostico, sem janela. Para sessoes SSH e para automacao: o
+#        codigo de saida diz o estado do parque sem ninguem ler nada. As
+#        operacoes e a exportacao so existem na janela.
 #
 #            ./cli.command --servidor vcenter.empresa.local --utilizador admin@vsphere.local
 #            ./cli.command --json --seccao estado
 #
-#        Codigos de saida: 0 tudo bem, 1 avisos, 2 criticos, 3 nao ligou.
+#        Codigos de saida: 0 tudo bem, 1 avisos, 2 criticos, 3 nao ligou,
+#        4 a assinatura da aplicacao foi alterada.
 #
 #        Para correr num launchd sem ninguem a olhar, ponha a senha em
 #        VFC_PASSWORD. Nao ha opcao de linha de comandos para ela de proposito:
 #        um argumento fica visivel no `ps` para qualquer utilizador da maquina.
 #
 # EN-UK: VMware Fleet Console text mode on macOS. Exit codes: 0 well,
-#        1 warnings, 2 critical, 3 could not connect. For an unattended launchd
+#        1 warnings, 2 critical, 3 could not connect, 4 signature altered. For an unattended launchd
 #        job, put the password in VFC_PASSWORD — there is deliberately no
 #        command-line option for it.
 #

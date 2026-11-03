@@ -127,20 +127,39 @@ class TestPastaDeDados:
         assert app_data_dir() == tmp_path / APP_FOLDER_NAME
 
 
-class TestTerminal:
-    """PT-PT: O que a TUI precisa. / EN-UK: What the TUI needs."""
+class TestJanela:
+    """PT-PT: O que a interface gráfica precisa. / EN-UK: What the window needs."""
 
-    def test_tamanho_tem_sempre_uma_resposta(self) -> None:
-        colunas, linhas = ps.terminal_size()
-        assert colunas > 0 and linhas > 0
+    def test_wayland_tambem_conta(self) -> None:
+        assert ps.display_available({"WAYLAND_DISPLAY": "wayland-0"})
 
-    def test_term_dumb_nao_aguenta_a_interface(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("TERM", "dumb")
-        assert not ps.terminal_is_capable()
+    def test_sem_ambiente_grafico(self) -> None:
+        # PT-PT: Um servidor, uma sessão SSH sem -X: não há onde abrir a janela,
+        #        e o arranque cai no modo de texto em vez de rebentar.
+        # EN-UK: A server, an SSH session without -X: nowhere to open the
+        #        window, so startup falls back to text mode instead of failing.
+        assert not ps.display_available({})
 
-    def test_sem_term_nao_aguenta_a_interface(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("TERM", "")
-        assert not ps.terminal_is_capable()
+    def test_sem_ecra_a_janela_nao_esta_disponivel(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("DISPLAY", raising=False)
+        monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+        assert not ps.gui_available()
+
+    @pytest.mark.parametrize(
+        ("familia", "pacote"),
+        [
+            (Distro.DEBIAN, "python3-tk"),
+            (Distro.FEDORA, "python3-tkinter"),
+            (Distro.ARCH, "pacman -S tk"),
+            (Distro.SUSE, "python3-tk"),
+            (Distro.ALPINE, "py3-tkinter"),
+        ],
+    )
+    def test_o_pacote_do_tkinter_em_cada_familia(self, familia: Distro, pacote: str) -> None:
+        assert pacote in ps.install_command("tkinter", familia)
+
+    def test_preparar_a_janela_nao_faz_nada_nem_rebenta(self) -> None:
+        assert ps.prepare_gui() is None
 
 
 class TestDiagnostico:
@@ -155,16 +174,17 @@ class TestDiagnostico:
         nomes = {r.name for r in ps.check_requirements()}
         assert {"Python", "pyVmomi"} <= nomes
 
-    def test_o_pyvmomi_e_essencial_e_o_textual_nao(self) -> None:
-        # PT-PT: Sem pyVmomi não há ligação nenhuma; sem Textual há o modo de
-        #        texto. Apresentar os dois com a mesma gravidade levaria alguém
-        #        a desistir por causa do segundo.
-        # EN-UK: With no pyVmomi there is no connection at all; with no Textual
-        #        there is text mode. Presenting both at the same severity would
-        #        make somebody give up over the second.
+    def test_o_pyvmomi_e_essencial_e_a_janela_nao(self) -> None:
+        # PT-PT: Sem pyVmomi não há ligação nenhuma; sem Tkinter ou sem ambiente
+        #        gráfico há o modo de texto. Apresentar os dois com a mesma
+        #        gravidade levaria alguém a desistir por causa do segundo.
+        # EN-UK: With no pyVmomi there is no connection at all; with no Tkinter
+        #        or desktop there is text mode. Same severity for both would make
+        #        somebody give up over the second.
         requisitos = {r.name: r for r in ps.check_requirements()}
         assert requisitos["pyVmomi"].essential
-        assert not requisitos["Textual"].essential
+        assert not requisitos["Tkinter"].essential
+        assert not requisitos["Ambiente gráfico"].essential
 
     def test_um_requisito_em_falta_diz_como_o_instalar(self) -> None:
         em_falta = [r for r in ps.check_requirements() if not r.present and r.command]

@@ -197,3 +197,33 @@ class TestLimiares:
 
         tolerante = Settings(datastore_free_warning_pct=5.0, datastore_free_critical_pct=2.0)
         assert health.check_datastore(datastore, tolerante.thresholds()) == []
+
+
+class TestNovidadesDa20:
+    """
+    PT-PT: O tipo de servidor e as preferências da exportação sobrevivem a uma
+           gravação; um tipo inventado à mão no ficheiro é descartado.
+    EN-UK: Server kind and export preferences survive a save; a hand-made kind
+           in the file is discarded.
+    """
+
+    def test_tipo_e_exportacao_sobrevivem(self, tmp_path: Path) -> None:
+        ficheiro = tmp_path / "definicoes.json"
+        definicoes = Settings(export_dir=r"\\FILEPRINT\Backups_VM", shutdown_timeout_minutes=15)
+        definicoes.remember(Server(host="esx01", username="root", kind="esxi"))
+        assert save_settings(definicoes, ficheiro)
+        lidas = load_settings(ficheiro)
+        assert lidas.servers[0].kind == "esxi"
+        assert lidas.export_dir == r"\\FILEPRINT\Backups_VM"
+        assert lidas.shutdown_timeout_minutes == 15
+
+    def test_tipo_desconhecido_e_descartado(self, tmp_path: Path) -> None:
+        ficheiro = tmp_path / "definicoes.json"
+        ficheiro.write_text(json.dumps({"servers": [{"host": "x", "kind": "hyper-v"}]}), encoding="utf-8")
+        assert load_settings(ficheiro).servers[0].kind == ""
+
+    def test_lembrar_sem_tipo_mantem_o_que_havia(self) -> None:
+        definicoes = Settings()
+        definicoes.remember(Server(host="vc", kind="vcenter"))
+        definicoes.remember(Server(host="vc", username="admin"))
+        assert definicoes.servers[0].kind == "vcenter"

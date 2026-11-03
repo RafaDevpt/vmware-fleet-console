@@ -304,14 +304,30 @@ class TestAnfitrioes:
         assert anfitriao.cpu_cores == 0
         assert anfitriao.uptime_seconds is None
 
+    @staticmethod
+    def _sensor(nome: str, chave: str, rotulo: str) -> Objecto:
+        """
+        PT-PT: Um sensor com a forma verdadeira do vSphere: o `healthState` é
+               uma `ElementDescription`, com `key` e `label`, não um texto.
+        EN-UK: A sensor in vSphere's real shape: `healthState` is an
+               `ElementDescription` with `key` and `label`, not a string.
+        """
+        return Objecto(name=nome, healthState=Objecto(key=chave, label=rotulo))
+
     def test_sensores_de_hardware_em_alerta(self) -> None:
         propriedades = self._propriedades()
+        # PT-PT: `systemHealthInfo` é um objecto que tem a lista em
+        #        `numericSensorInfo` — a forma que a 1.0 lia mal.
+        # EN-UK: `systemHealthInfo` is an object holding the list in
+        #        `numericSensorInfo` — the shape 1.0 misread.
         propriedades["runtime.healthSystemRuntime"] = Objecto(
-            systemHealthInfo=[
-                Objecto(name="Power Supply 1", healthState="green"),
-                Objecto(name="Power Supply 2", healthState="red"),
-                Objecto(name="Fan 3", healthState="unknown"),
-            ]
+            systemHealthInfo=Objecto(
+                numericSensorInfo=[
+                    self._sensor("Power Supply 1", "green", "Green"),
+                    self._sensor("Power Supply 2", "red", "Red"),
+                    self._sensor("Fan 3", "unknown", "Unknown"),
+                ]
+            )
         )
         anfitriao = collect.map_host("host-1", propriedades)
         # PT-PT: O verde não é alerta, e o desconhecido de um sensor também não
@@ -320,7 +336,20 @@ class TestAnfitrioes:
         # EN-UK: Green is not an alert, and a sensor's "unknown" is not either:
         #        a sensor the vendor does not expose reads like that on many
         #        machines and is not a fault.
-        assert anfitriao.hardware_alerts == ["Power Supply 2"]
+        assert anfitriao.hardware_alerts == ["Power Supply 2 (Red)"]
+
+    def test_um_objecto_ilegivel_nao_esvazia_a_lista(self) -> None:
+        # PT-PT: A regressão da 1.0: um anfitrião que rebenta a ser lido não
+        #        pode levar os outros com ele.
+        # EN-UK: The 1.0 regression: one host that blows up while being read
+        #        must not take the others with it.
+        def converter(moid: str, props: dict) -> str:
+            if moid == "host-mau":
+                raise TypeError("objecto inesperado")
+            return moid
+
+        lidos = collect._map_each([("host-1", {}), ("host-mau", {}), ("host-3", {})], converter)
+        assert lidos == ["host-1", "host-3"]
 
 
 class TestDatastores:

@@ -339,12 +339,7 @@ def map_host(moid: str, props: dict) -> HostInfo:
     nucleos = int(getattr(hardware, "numCpuCores", 0) or 0)
     mhz_por_nucleo = int(getattr(hardware, "cpuMhz", 0) or 0)
 
-    alertas: list[str] = []
-    saude = props.get("runtime.healthSystemRuntime")
-    for sensor in getattr(saude, "systemHealthInfo", None) or []:
-        estado = str(getattr(sensor, "healthState", "") or "")
-        if estado and estado not in ("green", "unknown"):
-            alertas.append(str(getattr(sensor, "name", "sensor")))
+    alertas = _hardware_alerts(props.get("runtime.healthSystemRuntime"))
 
     return HostInfo(
         moid=moid,
@@ -375,6 +370,40 @@ def map_host(moid: str, props: dict) -> HostInfo:
         cluster_name=_name_of(props.get("parent")),
         hardware_alerts=alertas,
     )
+
+
+def _hardware_alerts(health_runtime: object) -> list[str]:
+    """
+    PT-PT: Os sensores de hardware que não estão a verde.
+
+           **A correcção da 2.0.** A 1.0 percorria `systemHealthInfo` como se
+           fosse a lista de sensores. Não é: é um objecto
+           (`HostSystemHealthInfo`) que *tem* a lista em `numericSensorInfo`.
+           Num anfitrião com sensores — qualquer servidor com o pacote do
+           fabricante, como um HPE com a imagem personalizada — isso dava um
+           `TypeError`, e como a recolha dos anfitriões estava toda dentro do
+           mesmo `try`, **o separador dos anfitriões vinha vazio**. Além disso o
+           `healthState` de cada sensor é uma `ElementDescription`, e o que se
+           compara é a `key` dela (`green`, `yellow`, `red`, `unknown`).
+
+    EN-UK: The hardware sensors that are not green. **The 2.0 fix.** 1.0 walked
+           `systemHealthInfo` as if it were the sensor list. It is an object
+           (`HostSystemHealthInfo`) that *holds* the list in
+           `numericSensorInfo`. On a host with sensors — any server with its
+           vendor bundle — that raised `TypeError`, and since all hosts were read
+           inside one `try`, **the hosts tab came back empty**. Each sensor's
+           `healthState` is an `ElementDescription`; its `key` is what compares.
+    """
+    info = getattr(health_runtime, "systemHealthInfo", None)
+    sensores = getattr(info, "numericSensorInfo", None) or []
+    alertas: list[str] = []
+    for sensor in sensores:
+        estado = getattr(sensor, "healthState", None)
+        chave = str(getattr(estado, "key", "") or "").casefold()
+        if chave and chave not in ("green", "unknown"):
+            rotulo = str(getattr(estado, "label", "") or chave)
+            alertas.append(f"{getattr(sensor, 'name', 'sensor')} ({rotulo})")
+    return alertas
 
 
 # ---------------------------------------------------------------------------
@@ -483,26 +512,23 @@ def collect_fleet(session: object) -> Fleet:
     )
 
     try:
-        parque.hosts = [
-            map_host(moid, props)
-            for moid, props in _properties(conteudo, vim.HostSystem, HOST_PROPERTIES)
-        ]
+        parque.hosts = _map_each(
+            _properties(conteudo, vim.HostSystem, HOST_PROPERTIES), map_host
+        )
     except Exception as erro:  # noqa: BLE001
         logger.error("Falha a ler os anfitriões: %s", erro)
 
     try:
-        parque.vms = [
-            map_vm(moid, props)
-            for moid, props in _properties(conteudo, vim.VirtualMachine, VM_PROPERTIES)
-        ]
+        parque.vms = _map_each(
+            _properties(conteudo, vim.VirtualMachine, VM_PROPERTIES), map_vm
+        )
     except Exception as erro:  # noqa: BLE001
         logger.error("Falha a ler as máquinas: %s", erro)
 
     try:
-        parque.datastores = [
-            map_datastore(moid, props)
-            for moid, props in _properties(conteudo, vim.Datastore, DATASTORE_PROPERTIES)
-        ]
+        parque.datastores = _map_each(
+            _properties(conteudo, vim.Datastore, DATASTORE_PROPERTIES), map_datastore
+        )
     except Exception as erro:  # noqa: BLE001
         logger.error("Falha a ler os datastores: %s", erro)
 
@@ -521,6 +547,26 @@ def collect_fleet(session: object) -> Fleet:
         logger.debug("Não foi possível determinar o licenciamento: %s", erro)
 
     return parque
+
+
+def _map_each(items: list[tuple[str, dict]], mapper: object) -> list:
+    """
+    PT-PT: Converte cada objecto por si. Um objecto que não se deixa ler fica
+           no registo e de fora da lista — não leva os outros com ele. Foi
+           exactamente por não haver esta separação que um só sensor mal lido
+           esvaziava o separador dos anfitriões todo.
+    EN-UK: Converts each object on its own. One that cannot be read is logged
+           and left out — it does not take the others with it. The lack of this
+           separation is exactly how one misread sensor emptied the whole hosts
+           tab.
+    """
+    saida = []
+    for moid, props in items:
+        try:
+            saida.append(mapper(moid, props))  # type: ignore[operator]
+        except Exception as erro:  # noqa: BLE001
+            logger.error("Objecto %s ignorado — não foi possível lê-lo: %s", moid, erro)
+    return saida
 
 
 def _fill_host_counts(fleet: Fleet) -> None:

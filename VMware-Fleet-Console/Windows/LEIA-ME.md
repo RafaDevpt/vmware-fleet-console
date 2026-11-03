@@ -15,8 +15,20 @@ live in the folders alongside and are not needed here.*
 Duplo clique em **`EXECUTAR.bat`**.
 
 Na primeira execução cria o ambiente virtual e instala as dependências. Nas
-seguintes arranca directamente. **Não pede elevação** — esta ferramenta não lê
-nada da máquina local.
+seguintes abre logo a janela, **sem consola atrás dela**. **Não pede elevação** —
+esta ferramenta não lê nada da máquina local.
+
+A janela pergunta primeiro **a que tipo de servidor se liga** — ESXi ou vCenter
+— depois o servidor, o utilizador e a senha, e abre no separador das máquinas,
+filtrado nas que estão ligadas.
+
+## Exportar máquinas para OVF
+
+No separador **Máquinas**, escolha uma ou várias (Ctrl ou Shift) e carregue em
+**Exportar máquinas…**. O destino pode ser uma pasta local, um disco externo ou
+uma partilha de rede (`\\servidor\partilha`). O que acontece a cada máquina —
+pronta, vai ser encerrada, ou recusada e porquê — vê-se **antes** de confirmar.
+O detalhe está no [README do projecto](../README.md#exportação-para-ovf--ovf-export).
 
 ## Modo de texto
 
@@ -26,7 +38,9 @@ CLI.bat --json --seccao estado
 ```
 
 Códigos de saída: **0** nada a apontar, **1** avisos, **2** críticos, **3** não
-foi possível ligar.
+foi possível ligar, **4** a assinatura da aplicação foi alterada. O modo de
+texto só lê: as operações e a exportação vivem na janela, onde há um sítio para
+confirmar.
 
 ## O que esta máquina precisa
 
@@ -39,13 +53,16 @@ EXECUTAR.bat --diagnostico
 | Python 3.10+ | — | não arranca |
 | Python que **não** seja o da Store | ver abaixo | não arranca |
 | `pyvmomi` | a biblioteca da VMware | não há ligação nenhuma |
-| `textual` | a interface de texto | resta o modo de texto |
-| Windows Terminal | 24 bits de cor e UTF-8 | o `cmd.exe` desenha na mesma, com 16 cores |
+| Tkinter | a janela; vem com o Python do python.org (opção *tcl/tk and IDLE*) | resta o modo de texto |
+
+Não há mais dependências: a janela usa o Tkinter que vem com o Python, e a
+exportação usa só a biblioteca da VMware e a biblioteca-padrão — sem `ovftool`.
 
 ## O que é diferente nesta versão
 
 O `src\vfc\platform_support.py` é o único ficheiro que difere entre as três
-versões. Nesta, o que ele sabe e as outras não são três armadilhas do Windows:
+versões. Nesta, o que ele sabe e as outras não são quatro particularidades do
+Windows:
 
 ### O `python.exe` da Microsoft Store
 
@@ -61,14 +78,20 @@ em **Definições → Aplicações → Aliases de execução de aplicações**.
 
 É a causa número um de "sai tudo aos quadradinhos". Uma consola portuguesa
 arranca na página 850, onde os caracteres de desenho de caixas e os acentos saem
-trocados. Os dois lançadores fazem `chcp 65001` (UTF-8) antes de arrancar, o que
-resolve na sessão.
+trocados. Só importa ao modo de texto e às mensagens dos lançadores, que fazem
+`chcp 65001` (UTF-8) antes de arrancar.
 
-### O terminal
+### A nitidez da janela
 
-O `cmd.exe` clássico desenha a interface — com 16 cores e sem cor verdadeira.
-Funciona e fica feio. O **Windows Terminal** e o PowerShell moderno não têm
-nenhum dos dois problemas, e o `--diagnostico` diz qual está em uso.
+Num portátil com a escala do ecrã a 125% ou 150%, o Windows estica as janelas
+das aplicações que não se declaram preparadas para alta densidade, e o texto
+fica desfocado. A aplicação declara-se antes de abrir a primeira janela.
+
+### O Tkinter
+
+Vem com o instalador do python.org, mas é uma opção — *tcl/tk and IDLE* — que se
+pode desmarcar. O `EXECUTAR.bat` confirma que existe antes de abrir a janela, e
+diz como o instalar se faltar.
 
 ### Onde ficam as definições
 
@@ -84,7 +107,7 @@ um teste que falha se alguém acrescentar uma.
 ```
 .venv\Scripts\activate
 pip install -r requirements-dev.txt
-python -m pytest
+python -m pytest        # os testes da janela saltam-se se não houver ecrã
 python -m ruff check .
 ```
 

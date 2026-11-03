@@ -103,6 +103,27 @@ case "$PYTHON" in
 esac
 
 # ---------------------------------------------------------------------------
+# PT-PT: O Tkinter da janela.
+#
+#        O Python do python.org traz o Tk; o do Homebrew nao, e precisa do
+#        python-tk da mesma versao. Sem ele a aplicacao abre em modo de texto
+#        sozinha — mas vale a pena dize-lo aqui, com o comando certo.
+#
+# EN-UK: The window's Tkinter. python.org's Python ships Tk; Homebrew's needs
+#        python-tk for the same version. Without it the application opens in
+#        text mode on its own — said here, with the right command.
+# ---------------------------------------------------------------------------
+if [ $# -eq 0 ] && ! "$PYTHON" -c "import tkinter" >/dev/null 2>&1; then
+    VERSAO="$("$PYTHON" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+    aviso "Este Python nao tem Tkinter: a aplicacao vai abrir em modo de texto."
+    if [ -n "$PREFIXO" ]; then
+        passo "brew install python-tk@$VERSAO"
+    else
+        passo "instale o Python de https://www.python.org/downloads/ (ja traz o Tk)"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # PT-PT: Codificacao / EN-UK: Encoding
 # ---------------------------------------------------------------------------
 case "${LANG:-}${LC_ALL:-}" in

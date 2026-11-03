@@ -20,6 +20,10 @@ PT-PT: Particularidades do macOS.
        Intel é `/usr/local`. É a razão de metade dos "funciona no meu Mac e não
        no teu": o mesmo comando, dois sítios, conforme o processador.
 
+       E uma terceira, que só a janela sente: **o Tkinter do Homebrew vem à
+       parte.** O Python do python.org traz o Tk; o do Homebrew não, e precisa
+       de `brew install python-tk@3.x` para a mesma versão.
+
 EN-UK: macOS specifics.
 
        This is the macOS version. There is no operating-system branching here.
@@ -30,6 +34,8 @@ EN-UK: macOS specifics.
        `externally-managed-environment` error nobody understands first time. And
        **Homebrew's two prefixes** — `/opt/homebrew` on Apple Silicon,
        `/usr/local` on Intel — are the reason for half the "works on my Mac".
+       And, for the window only: Homebrew's Python ships without Tk, which
+       needs `brew install python-tk@3.x` for the same version.
 
 Created by Redfox using Claude
 """
@@ -37,9 +43,8 @@ Created by Redfox using Claude
 from __future__ import annotations
 
 import logging
-import os
 import platform
-import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from enum import Enum
@@ -192,47 +197,69 @@ def app_data_dir(app_name: str) -> Path:
     return Path.home() / "Library" / "Application Support" / app_name
 
 
-def terminal_is_capable() -> bool:
+# PT-PT: As letras da interface. A `.AppleSystemUIFont` é a San Francisco, a do
+#        próprio sistema; o tamanho 13 é o que o macOS usa nas suas janelas.
+# EN-UK: The interface fonts. `.AppleSystemUIFont` is San Francisco, the
+#        system's own; size 13 is what macOS uses in its windows.
+UI_FONT_FAMILIES = (".AppleSystemUIFont", "Helvetica Neue", "Helvetica")
+MONO_FONT_FAMILIES = ("SF Mono", "Menlo", "Monaco")
+UI_FONT_SIZE = 13
+
+
+def tkinter_available() -> bool:
     """
-    PT-PT: Se este terminal aguenta a interface.
-
-           O Terminal.app e o iTerm2 aguentam ambos. O que não aguenta é uma
-           saída encaminhada para um ficheiro, ou um `TERM=dumb` vindo de um
-           `launchd` ou de um cron.
-
-    EN-UK: Whether this terminal can carry the interface. Terminal.app and iTerm2
-           both can. What cannot is output redirected to a file, or a `TERM=dumb`
-           coming from `launchd` or cron.
-    """
-    if not sys.stdout.isatty():
-        return False
-    if os.environ.get("TERM", "").lower() in ("", "dumb"):
-        return False
-    return terminal_size()[0] >= 60
-
-
-def terminal_size() -> tuple[int, int]:
-    """
-    PT-PT: Colunas e linhas, com omissões de 80x24.
-    EN-UK: Columns and rows, defaulting to 80x24.
+    PT-PT: Se o Tkinter está instalado. O Python do python.org traz o Tk; o do
+           Homebrew não — ver `check_requirements`.
+    EN-UK: Whether Tkinter is installed. python.org's Python ships Tk;
+           Homebrew's does not.
     """
     try:
-        tamanho = shutil.get_terminal_size(fallback=(80, 24))
-        return tamanho.columns, tamanho.lines
-    except OSError:
-        return 80, 24
+        import tkinter  # noqa: F401,PLC0415
+    except ImportError:
+        return False
+    return True
+
+
+def gui_available() -> bool:
+    """
+    PT-PT: Se dá para abrir a janela. Num Mac há sempre um ambiente gráfico; a
+           única coisa que pode faltar é o Tkinter.
+    EN-UK: Whether the window can open. A Mac always has a desktop; the only
+           thing that can be missing is Tkinter.
+    """
+    return tkinter_available()
+
+
+def prepare_gui() -> None:
+    """
+    PT-PT: Nada a preparar em macOS: o Tk 8.6 desenha em Retina sozinho. A
+           função existe porque o arranque é o mesmo nas três versões, e em
+           Windows ela tem trabalho a fazer.
+    EN-UK: Nothing to prepare on macOS: Tk 8.6 draws for Retina on its own. The
+           function exists because the startup is shared by all three versions,
+           and on Windows it has work.
+    """
+
+
+def open_path(path: Path) -> None:
+    """
+    PT-PT: Abre uma pasta no Finder, ou um ficheiro na aplicação de omissão.
+    EN-UK: Opens a folder in Finder, or a file in its default application.
+    """
+    subprocess.Popen(["open", str(path)])  # noqa: S603,S607
 
 
 def unicode_is_safe() -> bool:
     """
-    PT-PT: Se dá para desenhar caixas sem sair uma sopa de caracteres.
+    PT-PT: Se os acentos do modo de texto saem como deve ser.
 
            Em macOS é quase sempre verdade — o sistema é UTF-8 de origem. A
            excepção é uma sessão SSH que herde `LANG=C` da máquina de onde veio.
+           Só importa ao modo de texto: a janela não passa pela consola.
 
-    EN-UK: Whether box-drawing will render. On macOS this is nearly always true —
-           the system is UTF-8 by origin. The exception is an SSH session
-           inheriting `LANG=C` from wherever it came from.
+    EN-UK: Whether text mode's accents will render. On macOS nearly always —
+           the system is UTF-8 by origin; the exception is an SSH session
+           inheriting `LANG=C`. Text mode only.
     """
     codificacao = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "")
     return "utf8" in codificacao
@@ -321,31 +348,18 @@ def check_requirements() -> list[Requirement]:
         )
     )
 
-    try:
-        import textual  # noqa: F401,PLC0415
-
-        tem_textual = True
-    except ImportError:
-        tem_textual = False
-
+    versao = f"{sys.version_info.major}.{sys.version_info.minor}"
     requisitos.append(
         Requirement(
-            name="Textual",
-            present=tem_textual,
+            name="Tkinter",
+            present=tkinter_available(),
             essential=False,
-            detail="a interface de texto; sem ela resta o modo de linha de comandos",
-            command="pip install -r requirements.txt",
-        )
-    )
-
-    colunas, linhas = terminal_size()
-    requisitos.append(
-        Requirement(
-            name="Terminal",
-            present=terminal_is_capable(),
-            essential=False,
-            detail=f"TERM={os.environ.get('TERM', '(vazio)')}, {colunas}x{linhas}",
-            command="a interface precisa de pelo menos 60 colunas; use --texto num terminal simples",
+            detail="a interface gráfica; sem ela resta o modo de texto (--texto)",
+            command=(
+                f"brew install python-tk@{versao}"
+                if prefixo is not None
+                else "instale o Python de python.org, que já traz o Tk"
+            ),
         )
     )
 
@@ -355,7 +369,7 @@ def check_requirements() -> list[Requirement]:
             present=unicode_is_safe(),
             essential=False,
             detail=f"stdout em {getattr(sys.stdout, 'encoding', '(desconhecida)')}",
-            command="export LANG=pt_PT.UTF-8 (ou outra UTF-8) para os caracteres de desenho",
+            command="export LANG=pt_PT.UTF-8 (ou outra UTF-8) para os acentos do modo de texto",
         )
     )
 

@@ -13,13 +13,12 @@ PT-PT: Particularidades do Linux.
        `sudo apt install` a quem está numa Fedora não é um erro estético — é o
        utilizador a concluir que a aplicação não foi pensada para o sistema dele.
 
-       A segunda particularidade é o terminal. Esta aplicação é uma TUI, e uma
-       TUI depende de coisas que num terminal de Linux podem não estar lá: uma
-       variável `TERM` que descreva um terminal a cores, e uma codificação UTF-8
-       para os caracteres de desenho de caixas. Num terminal série, num `TERM=dumb`
-       de um cron, ou numa sessão com codificação latina, o que sai é uma sopa
-       de caracteres — e a aplicação tem de o dizer antes, e oferecer o modo de
-       texto simples, em vez de o descobrir a meio de um ecrã ilegível.
+       A segunda particularidade é **o ambiente gráfico**. Em Windows e macOS
+       há sempre um; em Linux pode não haver — um servidor, uma sessão SSH sem
+       reencaminhamento de X, um contentor. E o Tkinter, que nos outros dois
+       vem com o Python, aqui é um pacote à parte (`python3-tk` e afins). A
+       aplicação diz o que falta antes de tentar abrir a janela, e nesse caso
+       oferece o modo de texto em vez de rebentar.
 
 EN-UK: Linux specifics.
 
@@ -34,9 +33,11 @@ EN-UK: Linux specifics.
        Fedora to run `sudo apt install` is not a cosmetic error — it is the user
        concluding the application was not written for their system.
 
-       The second specific is the terminal. This application is a TUI, and a TUI
-       depends on things a Linux terminal may not have: a `TERM` describing a
-       colour terminal, and a UTF-8 encoding for the box-drawing characters.
+       The second specific is **the desktop**. Windows and macOS always have
+       one; Linux may not — a server, an SSH session with no X forwarding, a
+       container. And Tkinter, bundled with Python elsewhere, is a separate
+       package here (`python3-tk` and kin). What is missing is said before the
+       window is tried, and text mode is offered instead of failing.
 
 Created by Redfox using Claude
 """
@@ -46,7 +47,7 @@ from __future__ import annotations
 import logging
 import os
 import platform
-import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from enum import Enum
@@ -122,22 +123,27 @@ _COMMANDS: dict[Distro, dict[str, str]] = {
     Distro.DEBIAN: {
         "venv": "sudo apt install python3-venv",
         "pip": "sudo apt install python3-pip",
+        "tkinter": "sudo apt install python3-tk",
     },
     Distro.FEDORA: {
         "venv": "já vem com o python3",
         "pip": "sudo dnf install python3-pip",
+        "tkinter": "sudo dnf install python3-tkinter",
     },
     Distro.ARCH: {
         "venv": "já vem com o python",
         "pip": "sudo pacman -S python-pip",
+        "tkinter": "sudo pacman -S tk",
     },
     Distro.SUSE: {
         "venv": "já vem com o python3",
         "pip": "sudo zypper install python3-pip",
+        "tkinter": "sudo zypper install python3-tk",
     },
     Distro.ALPINE: {
         "venv": "já vem com o python3",
         "pip": "sudo apk add py3-pip",
+        "tkinter": "sudo apk add py3-tkinter",
     },
 }
 
@@ -230,51 +236,89 @@ def app_data_dir(app_name: str) -> Path:
     return raiz / app_name
 
 
-def terminal_is_capable() -> bool:
+# PT-PT: As letras da interface, pela ordem em que costumam existir nas
+#        distribuições de secretária. O Tk escolhe a primeira que encontrar.
+# EN-UK: The interface fonts, in the order desktop distributions usually carry
+#        them. Tk picks the first it finds.
+UI_FONT_FAMILIES = ("Noto Sans", "Ubuntu", "Cantarell", "DejaVu Sans", "Liberation Sans")
+MONO_FONT_FAMILIES = ("Noto Sans Mono", "Ubuntu Mono", "DejaVu Sans Mono", "Liberation Mono")
+UI_FONT_SIZE = 10
+
+
+def tkinter_available() -> bool:
     """
-    PT-PT: Se este terminal aguenta uma interface de texto a sério.
-
-           Três coisas têm de ser verdade: a saída é um terminal (e não um
-           `| tee ficheiro.txt`), o `TERM` descreve alguma coisa (e não `dumb`),
-           e há largura suficiente para as tabelas caberem.
-
-    EN-UK: Whether this terminal can carry a real text interface: output is a
-           terminal rather than a pipe, `TERM` describes something other than
-           `dumb`, and there is enough width for the tables to fit.
-    """
-    if not sys.stdout.isatty():
-        return False
-    if os.environ.get("TERM", "").lower() in ("", "dumb"):
-        return False
-    return terminal_size()[0] >= 60
-
-
-def terminal_size() -> tuple[int, int]:
-    """
-    PT-PT: Colunas e linhas. Com omissões de 80x24, que é o que um terminal
-           que não sabe responder quase sempre é.
-    EN-UK: Columns and rows, defaulting to 80x24 — which is what a terminal that
-           cannot answer almost always is.
+    PT-PT: Se o Tkinter está instalado. Em Linux é quase sempre um pacote à
+           parte do Python — ver `install_command("tkinter")`.
+    EN-UK: Whether Tkinter is installed. On Linux it is nearly always a package
+           separate from Python.
     """
     try:
-        tamanho = shutil.get_terminal_size(fallback=(80, 24))
-        return tamanho.columns, tamanho.lines
-    except OSError:
-        return 80, 24
+        import tkinter  # noqa: F401,PLC0415
+    except ImportError:
+        return False
+    return True
+
+
+def display_available(environment: dict[str, str] | None = None) -> bool:
+    """
+    PT-PT: Se há um ambiente gráfico onde abrir a janela — X11 (`DISPLAY`) ou
+           Wayland (`WAYLAND_DISPLAY`, que o Tk usa pelo XWayland).
+    EN-UK: Whether there is a desktop to open the window on — X11 (`DISPLAY`)
+           or Wayland (`WAYLAND_DISPLAY`, used by Tk through XWayland).
+
+    >>> display_available({"DISPLAY": ":0"})
+    True
+    >>> display_available({})
+    False
+    """
+    ambiente = os.environ if environment is None else environment
+    return bool(ambiente.get("DISPLAY") or ambiente.get("WAYLAND_DISPLAY"))
+
+
+def gui_available() -> bool:
+    """
+    PT-PT: Se dá para abrir a janela: é preciso o Tkinter e um ambiente gráfico.
+    EN-UK: Whether the window can open: Tkinter and a desktop are both needed.
+    """
+    return tkinter_available() and display_available()
+
+
+def prepare_gui() -> None:
+    """
+    PT-PT: Nada a preparar em Linux: o Tk lê a densidade do ecrã ao servidor X
+           (ou ao XWayland) quando abre. A função existe porque o arranque é o
+           mesmo nas três versões, e em Windows ela tem trabalho a fazer.
+    EN-UK: Nothing to prepare on Linux: Tk reads the screen density from the X
+           server (or XWayland) when it opens. The function exists because the
+           startup is shared by all three versions, and on Windows it has work.
+    """
+
+
+def open_path(path: Path) -> None:
+    """
+    PT-PT: Abre uma pasta ou um ficheiro com a aplicação de omissão do ambiente
+           de trabalho (`xdg-open`). Sem `xdg-open`, levanta `OSError` — que a
+           janela mostra com o caminho, para se abrir à mão.
+    EN-UK: Opens a folder or file with the desktop's default application
+           (`xdg-open`). Without it, `OSError` — which the window shows with the
+           path, to open by hand.
+    """
+    subprocess.Popen(["xdg-open", str(path)])  # noqa: S603,S607
 
 
 def unicode_is_safe() -> bool:
     """
-    PT-PT: Se dá para desenhar caixas sem sair uma sopa de caracteres.
+    PT-PT: Se os acentos do modo de texto saem como deve ser.
 
            Uma sessão SSH com `LANG=C` ou uma consola série herdam uma
-           codificação latina, e cada caractere de desenho sai como dois ou três
-           símbolos errados. Vale mais saber antes e desenhar com traços.
+           codificação latina, e cada letra acentuada sai como dois ou três
+           símbolos errados. Só importa ao modo de texto — a janela não passa
+           pela consola.
 
-    EN-UK: Whether box-drawing will render or come out as character soup. An SSH
-           session with `LANG=C`, or a serial console, inherits a latin
-           encoding, and every drawing character comes out as two or three wrong
-           symbols. Better to know beforehand and draw with dashes.
+    EN-UK: Whether text mode's accents will render. An SSH session with
+           `LANG=C`, or a serial console, inherits a latin encoding, and every
+           accented letter comes out as two or three wrong symbols. Text mode
+           only — the window does not go through the console.
     """
     codificacao = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "")
     return "utf8" in codificacao
@@ -331,31 +375,26 @@ def check_requirements() -> list[Requirement]:
         )
     )
 
-    try:
-        import textual  # noqa: F401,PLC0415
-
-        tem_textual = True
-    except ImportError:
-        tem_textual = False
-
     requisitos.append(
         Requirement(
-            name="Textual",
-            present=tem_textual,
+            name="Tkinter",
+            present=tkinter_available(),
             essential=False,
-            detail="a interface de texto; sem ela resta o modo de linha de comandos",
-            command="pip install -r requirements.txt",
+            detail="a interface gráfica; sem ela resta o modo de texto (--texto)",
+            command=install_command("tkinter", familia),
         )
     )
 
-    colunas, linhas = terminal_size()
     requisitos.append(
         Requirement(
-            name="Terminal",
-            present=terminal_is_capable(),
+            name="Ambiente gráfico",
+            present=display_available(),
             essential=False,
-            detail=f"TERM={os.environ.get('TERM', '(vazio)')}, {colunas}x{linhas}",
-            command="a interface precisa de pelo menos 60 colunas; use --texto num terminal simples",
+            detail=(
+                f"DISPLAY={os.environ.get('DISPLAY', '(vazio)')}, "
+                f"WAYLAND_DISPLAY={os.environ.get('WAYLAND_DISPLAY', '(vazio)')}"
+            ),
+            command="sem ambiente gráfico (servidor, SSH sem -X) use --texto",
         )
     )
 
@@ -365,7 +404,7 @@ def check_requirements() -> list[Requirement]:
             present=unicode_is_safe(),
             essential=False,
             detail=f"stdout em {getattr(sys.stdout, 'encoding', '(desconhecida)')}",
-            command="export LANG=pt_PT.UTF-8 (ou outra UTF-8) para os caracteres de desenho",
+            command="export LANG=pt_PT.UTF-8 (ou outra UTF-8) para os acentos do modo de texto",
         )
     )
 
