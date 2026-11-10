@@ -46,15 +46,15 @@ class TestPythonDaMicrosoftStore:
 
     def test_reconhece_o_atalho_da_loja(self) -> None:
         assert ps.is_store_python(
-            r"C:\Users\rafael\AppData\Local\Microsoft\WindowsApps\python.exe"
+            r"C:\Users\utilizador\AppData\Local\Microsoft\WindowsApps\python.exe"
         )
         assert ps.is_store_python(
-            r"C:\Users\rafael\AppData\Local\Microsoft\WindowsApps\python3.11.exe"
+            r"C:\Users\utilizador\AppData\Local\Microsoft\WindowsApps\python3.11.exe"
         )
 
     def test_nao_confunde_um_python_a_serio(self) -> None:
         assert not ps.is_store_python(r"C:\Python312\python.exe")
-        assert not ps.is_store_python(r"C:\Users\rafael\AppData\Local\Programs\Python\Python312\python.exe")
+        assert not ps.is_store_python(r"C:\Users\utilizador\AppData\Local\Programs\Python\Python312\python.exe")
         assert not ps.is_store_python(r"C:\projecto\.venv\Scripts\python.exe")
 
     def test_ignora_maiusculas_e_barras(self) -> None:

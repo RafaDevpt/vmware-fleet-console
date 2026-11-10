@@ -116,7 +116,7 @@ class TestPythonDoSistema:
         assert not ps.is_system_python("/usr/local/bin/python3.12")
 
     def test_nao_confunde_um_ambiente_virtual(self) -> None:
-        assert not ps.is_system_python("/Users/rafael/projecto/.venv/bin/python")
+        assert not ps.is_system_python("/Users/utilizador/projecto/.venv/bin/python")
 
     def test_nao_e_essencial_porque_o_lancador_resolve(self) -> None:
         # PT-PT: O lançador cria sempre um ambiente virtual, e isso resolve o
