@@ -14,7 +14,7 @@ description = "Estado e manutencao de vCenter e ESXi a partir do terminal / vCen
 readme = "LEIA-ME.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "Rafael Santos (Redfox)" }]
+authors = [{ name = "Redfox" }]
 keywords = ["vmware", "vsphere", "vcenter", "esxi", "pyvmomi", "tui", "textual", "sysadmin"]
 classifiers = [
     "Development Status :: 4 - Beta",
