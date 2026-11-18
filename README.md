@@ -5,18 +5,29 @@
 
 <div align="center">
 
-# 🖥️ VMware Fleet Console
+<img src="Assets/banner.svg" width="100%" alt="VMware Fleet Console" />
 
-**The whole VMware estate on one terminal screen — and the maintenance that follows**
+<br />
 
-![Status](https://img.shields.io/badge/status-active-2EA043?style=for-the-badge)
-[![Release](https://img.shields.io/github/v/release/RafaDevpt/vmware-fleet-console?style=for-the-badge&color=1F6FEB)](https://github.com/RafaDevpt/vmware-fleet-console/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/RafaDevpt/vmware-fleet-console/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/RafaDevpt/vmware-fleet-console/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+[![CI](https://img.shields.io/github/actions/workflow/status/RafaDevpt/vmware-fleet-console/ci.yml?branch=main&style=flat-square&label=CI&labelColor=0b1220)](https://github.com/RafaDevpt/vmware-fleet-console/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/RafaDevpt/vmware-fleet-console?style=flat-square&label=release&color=60a5fa&labelColor=0b1220)](https://github.com/RafaDevpt/vmware-fleet-console/releases/latest)
+![status](https://img.shields.io/badge/status-active-60a5fa?style=flat-square&labelColor=0b1220)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&labelColor=0b1220&logo=python&logoColor=white)
+![platforms](https://img.shields.io/badge/platforms-Windows_·_Linux_·_macOS-0078D6?style=flat-square&labelColor=0b1220)
+![licence](https://img.shields.io/badge/licence-MIT-f59e0b?style=flat-square&labelColor=0b1220)
 
-<a href="https://github.com/RafaDevpt/Personal-AI-Projects"><img src="https://img.shields.io/badge/←_back_to_index-30363D?style=flat-square" /></a>
+<br /><br />
+
+<a href="https://github.com/RafaDevpt/Personal-AI-Projects"><img src="https://img.shields.io/badge/←_back_to_the_index-30363d?style=for-the-badge" /></a>
+<a href="https://github.com/RafaDevpt/vmware-fleet-console/releases/latest"><img src="https://img.shields.io/badge/download_the_latest_release_→-60a5fa?style=for-the-badge&labelColor=0b1220" /></a>
+
+<sub>Part of <a href="https://github.com/RafaDevpt/Personal-AI-Projects"><b>Personal AI Projects</b></a> by Redfox</sub>
 
 </div>
+
+# 🖥️ VMware Fleet Console
+
+> **The whole VMware estate on one terminal screen — and the maintenance that follows**
 
 ---
 
@@ -24,7 +35,7 @@
 
 At eleven at night something is wrong with a virtual machine and the answer is behind a browser, a certificate warning, a login, and four clicks through a web client that was not built for someone in a hurry.
 
-VMware Fleet Console answers it from a terminal. It connects to a **vCenter** or straight to an **ESXi host**, reads the whole inventory in one pass, and puts on one screen the question that brought you there:
+VMware Fleet Console answers it from a terminal. It connects to a **vCenter** or straight to an **ESXi host**, reads the whole inventory in one pass, and puts on one screen the question that brought the administrator there:
 
 > **Is everything all right? And if not — what, where, and what do I do about it?**
 
@@ -48,7 +59,7 @@ This does what SSH does instead:
 2. **If it fails, do not connect.** Show the SHA-256 fingerprint and wait for somebody to compare it against what the server displays. **No credential is sent before that.**
 3. **Once accepted, pin it.** Later connections compare against the pin.
 
-And **a changed fingerprint stops the connection**, showing the old and new side by side. That happens when a certificate is regenerated — and it happens when you are not talking to the same server any more. It is a nuisance once a year, and it is the difference between noticing a certificate substitution and not noticing one.
+And **a changed fingerprint stops the connection**, showing the old and new side by side. That happens when a certificate is regenerated — and it happens when the console is no longer talking to the same server. It is a nuisance once a year, and it is the difference between noticing a certificate substitution and not noticing one.
 
 The refuse button holds focus, so somebody hitting Enter by reflex does not accept a certificate they did not read.
 
@@ -69,7 +80,7 @@ The refuse button holds focus, so somebody hitting Enter by reflex does not acce
 
 Destructive operations have no Yes and No. They have a box where the **object's name** must be typed.
 
-A dialog with a confirm button teaches people to press confirm. A box that needs `SRV-DC01` typed into it forces you to read that the machine about to be stopped is called SRV-DC01. It is the only real defence against the list having sorted differently from how you thought.
+A dialog with a confirm button teaches people to press confirm. A box that needs `SRV-DC01` typed into it forces the operator to read that the machine about to be stopped is called SRV-DC01. It is the only real defence against the list having sorted differently from how you thought.
 
 Snapshot confirmations ask for the **machine's** name, not the snapshot's — every snapshot is called "before the upgrade", and typing that separates nothing.
 
@@ -87,7 +98,7 @@ Snapshot confirmations ask for the **machine's** name, not the snapshot's — ev
 
 ---
 
-## What it tells you that nobody configured
+## What it reports that nobody configured
 
 vCenter has alarms, and this reads them all. What it adds are the readings nobody sets up as an alarm because they have no obvious threshold.
 
@@ -97,7 +108,7 @@ vCenter has alarms, and this reads them all. What it adds are the readings nobod
 | Snapshot age | **3 d** warning, **30 d** critical | three days is where it stops being "one before the upgrade" and becomes a forgotten file |
 | Snapshot chain depth | **3 levels** | each level is one more delta file read on every disk access |
 | Host uptime | **90 d** | a full patch cycle unapplied |
-| Host memory | **90%** | past 95% ESXi balloons and swaps, and what you notice is slowness *inside* the machines |
+| Host memory | **90%** | past 95% ESXi balloons and swaps, and what shows up is slowness *inside* the machines |
 | VMware Tools | stopped / absent | with none, there is no clean shutdown |
 
 Plus the question that needs the whole estate to answer: **if the largest host falls over, does the memory in use fit in what is left?** A host in maintenance does not count as headroom — it takes no machines.
@@ -128,13 +139,13 @@ There is no `--senha` flag either: a command-line argument is visible in `ps` to
 - Health rules, operation guards and the certificate decision all take already-read models and return decisions — which is what makes them testable against an estate invented in `conftest.py`
 - Textual TUI plus a headless text mode with distinct exit codes
 - CI on three native runners — `windows-latest`, `ubuntu-latest`, `macos-latest`
-- Bilingual source, PT-PT and EN-UK
+- Source code documented in PT-PT and EN-UK
 
 ---
 
 ## Installation
 
-Three independent versions, one per system. Pick yours and ignore the other two.
+Three independent versions, one per system; each user takes only the one for their machine.
 
 | Folder | System | Open with |
 | :--- | :--- | :--- |
@@ -176,14 +187,14 @@ Full documentation in [`VMware-Fleet-Console/README.md`](VMware-Fleet-Console/RE
 ## Known limits
 
 - **Free-licensed ESXi: the API is read-only.** A VMware licence restriction, not an application one. All monitoring works; no write does.
-- **Without DRS, maintenance mode migrates nothing.** The application warns with the count of running machines, but does not move or stop them for you — that is the decision of whoever is doing the work.
+- **Without DRS, maintenance mode migrates nothing.** The application warns with the count of running machines, but does not move or stop them on its own — that is the decision of whoever is doing the work.
 - **It does not create machines, migrate them, or touch networking.** This is a maintenance tool, not an administration console. Those are project operations, and they belong in the web client.
 - **Snapshot size is not always reported.** vCenter is inconsistent about it across versions and datastore types. When it is missing the warning goes without it rather than inventing a number — the age, which is what decides, is always there.
 - **An open session is an open session.** On a large estate the refresh interval is load on vCenter. It is configurable, and zero switches automatic refresh off.
 
 ---
 
-## License
+## Licence
 
 MIT — see [`LICENSE`](LICENSE).
 
@@ -192,9 +203,9 @@ MIT — see [`LICENSE`](LICENSE).
 
 ## 🐳 Docker & Terraform
 
-The interactive console needs `-it`; the text mode (`--texto`) is the part to automate. / A consola interactiva precisa de `-it`; o modo de texto (`--texto`) é o que se automatiza.
+The interactive console needs `-it`; the text mode (`--texto`) is the part to automate.
 
-Files / Ficheiros: [`VMware-Fleet-Console/Linux/Dockerfile`](VMware-Fleet-Console/Linux/Dockerfile) · [`VMware-Fleet-Console/Linux/terraform/`](VMware-Fleet-Console/Linux/terraform/)
+Files: [`VMware-Fleet-Console/Linux/Dockerfile`](VMware-Fleet-Console/Linux/Dockerfile) · [`VMware-Fleet-Console/Linux/terraform/`](VMware-Fleet-Console/Linux/terraform/)
 
 ### Docker
 
@@ -204,34 +215,34 @@ docker build -t local/vmware-fleet-console .
 docker run --rm local/vmware-fleet-console --help
 ```
 
-Everything the app reads or writes lives in `/dados`; mount a folder there and run as your own user (`--user`) so the files it writes are yours. / Tudo o que a aplicação lê ou escreve vive em `/dados`; monte lá uma pasta e corra com o seu utilizador (`--user`) para os ficheiros escritos serem seus.
+Everything the app reads or writes lives in `/dados`; a host folder is mounted there and the container runs as the invoking user (`--user`), so the files it writes belong to that user.
 
-Interactive console / Consola interactiva:
+Interactive console:
 
 ```bash
 docker run --rm -it -v vfc-dados:/dados local/vmware-fleet-console
 ```
 
-Text report in JSON, for automation / Relatório em JSON, para automação:
+Text report in JSON, for automation:
 
 ```bash
 docker run --rm -e VFC_PASSWORD -v vfc-dados:/dados local/vmware-fleet-console --texto --servidor vcenter.example.com --utilizador leitura@vsphere.local --seccao snapshots --json
 ```
 
-Environment variables / Variáveis de ambiente: `VFC_PASSWORD` (read from your shell, never written in the files / lida da shell, nunca escrita nos ficheiros).
+Environment variables: `VFC_PASSWORD` (read from the shell, never written to the files).
 
 ### Terraform
 
-Builds the image and creates a container with the same hardening (read-only filesystem, no capabilities, unprivileged user). / Constrói a imagem e cria um contentor com o mesmo endurecimento (sistema de ficheiros só de leitura, sem capacidades, utilizador sem privilégios).
+Builds the image and creates a container with the same hardening (read-only filesystem, no capabilities, unprivileged user).
 
 ```bash
 cd VMware-Fleet-Console/Linux/terraform
 mkdir -p dados
 terraform init
 terraform apply -var "pasta_dados=./dados" -var "utilizador=$(id -u):$(id -g)"
-docker logs vmware-fleet-console            # output / resultado
-docker start -a vmware-fleet-console        # run again with the same settings / correr de novo
+docker logs vmware-fleet-console            # output
+docker start -a vmware-fleet-console        # run again with the same settings
 terraform destroy
 ```
 
-Change what it runs with `-var 'comando=[...]'` (default: `["--texto", "--servidor", "vcenter.example.com", "--utilizador", "leitura@vsphere.local", "--json"]`). Secrets go in `TF_VAR_ambiente`, never in the `.tf` files. / Mude o que corre com `-var 'comando=[...]'`. Os segredos vão em `TF_VAR_ambiente`, nunca nos ficheiros `.tf`.
+Change what it runs with `-var 'comando=[...]'` (default: `["--texto", "--servidor", "vcenter.example.com", "--utilizador", "leitura@vsphere.local", "--json"]`). Secrets go in `TF_VAR_ambiente`, never in the `.tf` files.

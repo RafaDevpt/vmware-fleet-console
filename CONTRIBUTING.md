@@ -37,4 +37,4 @@ an entry in `VMware-Fleet-Console/CHANGELOG.md` — never a branch per version.
 ## Tests
 
 CI runs the full suite on all three platforms. Locally, run the tests for the
-files you changed, from the platform folder you are working in.
+changed files, from the platform folder being worked on.

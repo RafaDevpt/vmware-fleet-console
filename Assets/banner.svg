@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 200" width="1200" height="200" role="img" aria-label="VMware Fleet Console">
+  <title>VMware Fleet Console</title>
+  <!-- Created by Redfox using Claude -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="#0d1830"/></linearGradient>
+    <radialGradient id="r" cx="0.85" cy="0.5" r="0.5"><stop offset="0" stop-color="#60a5fa" stop-opacity=".22"/><stop offset="1" stop-color="#60a5fa" stop-opacity="0"/></radialGradient>
+    <pattern id="p" width="32" height="32" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#ffffff" fill-opacity=".07"/></pattern>
+  </defs>
+  <rect width="1200" height="200" rx="18" fill="url(#g)"/>
+  <rect width="1200" height="200" rx="18" fill="url(#p)"/>
+  <rect width="1200" height="200" rx="18" fill="url(#r)"/>
+  <rect x="22" y="28" width="6" height="144" rx="3" fill="#60a5fa"/>
+  <text x="56" y="62" font-family="Cascadia Code,Consolas,monospace" font-size="15" letter-spacing="3" fill="#60a5fa">VIRTUALISATION · TERMINAL · WINDOWS · LINUX · MACOS</text>
+  <text x="56" y="116" font-family="Segoe UI,Inter,system-ui,sans-serif" font-size="48" font-weight="800" fill="#f1f5f9">VMware Fleet Console</text>
+  <text x="56" y="154" font-family="Segoe UI,Inter,system-ui,sans-serif" font-size="21" fill="#94a3b8">The whole vCenter and ESXi estate on one terminal screen.</text>
+  <g transform="translate(1000 100)" fill="none" stroke="#60a5fa" stroke-width="3"><rect x="-60" y="-66" width="120" height="132" rx="10" fill="#60a5fa" fill-opacity=".1"/><rect x="-46" y="-52" width="92" height="22" rx="4" fill="#60a5fa" fill-opacity=".18"/><circle cx="32" cy="-41" r="4" fill="#34d399" stroke="none"/><path d="M-36 -41 H8" stroke-opacity=".6" stroke-width="2.5"/><rect x="-46" y="-22" width="92" height="22" rx="4" fill="#60a5fa" fill-opacity=".18"/><circle cx="32" cy="-11" r="4" fill="#34d399" stroke="none"/><path d="M-36 -11 H8" stroke-opacity=".6" stroke-width="2.5"/><rect x="-46" y="8" width="92" height="22" rx="4" fill="#60a5fa" fill-opacity=".18"/><circle cx="32" cy="19" r="4" fill="#f87171" stroke="none"/><path d="M-36 19 H8" stroke-opacity=".6" stroke-width="2.5"/><rect x="-46" y="38" width="92" height="22" rx="4" fill="#60a5fa" fill-opacity=".18"/><circle cx="32" cy="49" r="4" fill="#34d399" stroke="none"/><path d="M-36 49 H8" stroke-opacity=".6" stroke-width="2.5"/></g>
+</svg>
